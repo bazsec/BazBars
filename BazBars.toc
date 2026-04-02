@@ -1,7 +1,7 @@
-## Interface: 120001, 120005
+## Interface: 120005
 ## Title: BazBars
 ## Author: Baz4k
-## Version: 005
+## Version: 006
 ## Notes: Custom extra action bars - independent of standard action bars
 ## X-License: GPL v2
 ## X-Website: https://www.curseforge.com/wow/addons/bazbars

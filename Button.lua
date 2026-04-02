@@ -17,11 +17,11 @@ local IsAltKeyDown = IsAltKeyDown
 local GetCursorInfo = GetCursorInfo
 local ClearCursor = ClearCursor
 local GameTooltip = GameTooltip
-local GetItemCount = GetItemCount
-local GetItemCooldown = GetItemCooldown
-local IsUsableItem = IsUsableItem
-local IsItemInRange = IsItemInRange
-local IsEquippedItem = IsEquippedItem
+local GetItemCount = C_Item.GetItemCount
+local GetItemCooldown = C_Item.GetItemCooldown
+local IsUsableItem = C_Item.IsUsableItem
+local IsItemInRange = C_Item.IsItemInRange
+local IsEquippedItem = C_Item.IsEquippedItem
 local PlayerHasToy = PlayerHasToy
 
 -- Textures
@@ -46,13 +46,8 @@ local function GetItemIcon(itemID)
 end
 
 local function GetItemName(itemID)
-    if C_Item and C_Item.GetItemInfo then
-        local info = C_Item.GetItemInfo(itemID)
-        return info and info.itemName
-    end
-    -- Fallback
-    local name = GetItemInfo(itemID)
-    return name
+    local info = C_Item.GetItemInfo(itemID)
+    return info and info.itemName
 end
 
 ---------------------------------------------------------------------------
@@ -106,12 +101,8 @@ function Button:GetTexture(btn)
         end
         return GetItemIcon(value)
     elseif cmd == "macro" then
-        if C_Macro and C_Macro.GetMacroInfo then
-            local info = C_Macro.GetMacroInfo(value)
-            return info and info.iconID
-        end
-        local _, texture = GetMacroInfo(value)
-        return texture
+        local info = C_Macro.GetMacroInfo(value)
+        return info and info.iconID
     elseif cmd == "mount" then
         local name, spellID, icon = C_MountJournal.GetMountInfoByID(value)
         return icon
@@ -348,12 +339,8 @@ function Button:UpdateMacroName(btn)
     if not btn.Name then return end
     if btn.bbCommand == "macro" and btn.bbValue then
         local name
-        if C_Macro and C_Macro.GetMacroInfo then
-            local info = C_Macro.GetMacroInfo(btn.bbValue)
-            name = info and info.name
-        else
-            name = GetMacroInfo(btn.bbValue)
-        end
+        local info = C_Macro.GetMacroInfo(btn.bbValue)
+        name = info and info.name
         if name then
             btn.Name:SetText(name)
             btn.Name:Show()
@@ -448,18 +435,10 @@ function Button:PickUp(btn)
         if PlayerHasToy and PlayerHasToy(value) then
             C_ToyBox.PickupToyBoxItem(value)
         else
-            if C_Item and C_Item.PickupItem then
-                C_Item.PickupItem(value)
-            else
-                PickupItem(value)
-            end
+            C_Item.PickupItem(value)
         end
     elseif cmd == "macro" then
-        if C_Macro and C_Macro.PickupMacro then
-            C_Macro.PickupMacro(value)
-        else
-            PickupMacro(value)
-        end
+        C_Macro.PickupMacro(value)
     elseif cmd == "mount" then
         C_MountJournal.Pickup(0) -- index, not ideal but fallback
     elseif cmd == "battlepet" then

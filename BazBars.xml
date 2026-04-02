@@ -81,6 +81,9 @@
             <OnDragStart>
                 BazBarsButton_OnDragStart(self)
             </OnDragStart>
+            <PostClick>
+                BazBarsButton_PostClick(self, button)
+            </PostClick>
         </Scripts>
     </Button>
 

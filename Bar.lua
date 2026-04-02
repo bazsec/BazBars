@@ -123,7 +123,7 @@ function Bar:CreateSingleButton(frame, barData, r, c)
 
         -- Item cooldown
         if event == "BAG_UPDATE_COOLDOWN" and cmd == "item" then
-            local start, duration, enable = GetItemCooldown(self.bbValue)
+            local start, duration, enable = C_Item.GetItemCooldown(self.bbValue)
             if start and duration and duration > 0 then
                 self.cooldown:SetCooldown(start, duration)
                 self.cooldown:Show()
@@ -454,7 +454,6 @@ function Bar:Select(frame)
     overlay.label:Show()
 
     -- Show settings popup
-    local addon = LibStub("AceAddon-3.0"):GetAddon("BazBars")
     if addon.EditSettings then
         addon.EditSettings:AttachToBar(frame)
     end
@@ -477,7 +476,6 @@ function Bar:Deselect(frame)
     end
 
     -- Hide settings popup
-    local addon = LibStub("AceAddon-3.0"):GetAddon("BazBars")
     if addon.EditSettings then
         addon.EditSettings:Hide()
     end
