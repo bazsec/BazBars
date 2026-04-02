@@ -561,7 +561,7 @@ function Button:SaveButton(btn)
     local row = btn.bbRow
     local col = btn.bbCol
 
-    local db = addon.db.char.bars[barID]
+    local db = addon.db.profile.bars[barID]
     if not db then return end
 
     db.buttons = db.buttons or {}
@@ -584,7 +584,7 @@ function Button:LoadButton(btn)
     local row = btn.bbRow
     local col = btn.bbCol
 
-    local db = addon.db.char.bars[barID]
+    local db = addon.db.profile.bars[barID]
     if not db or not db.buttons then return end
 
     local key = row .. ":" .. col

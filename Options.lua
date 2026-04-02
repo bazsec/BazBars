@@ -51,7 +51,7 @@ local function GetOptionsTable()
     }
 
     -- Build per-bar options
-    local dbBars = addon.db and addon.db.char and addon.db.profile.bars or {}
+    local dbBars = addon.db and addon.db.profile and addon.db.profile.bars or {}
     for id, barData in pairs(dbBars) do
         if type(barData) == "table" then
             options.args.bars.args["bar" .. id] = BuildBarOptions(id, barData)
