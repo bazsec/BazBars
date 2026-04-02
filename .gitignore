@@ -1,2 +1,3 @@
 # Don't commit bundled libs - CurseForge packager fetches them via .pkgmeta
-libs/
+libs/*
+!libs/embeds.xml
