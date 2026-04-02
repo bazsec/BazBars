@@ -28,6 +28,23 @@ local PlayerHasToy = PlayerHasToy
 local EMPTY_SLOT = 136511 -- Interface\PaperDoll\UI-Backpack-EmptySlot
 local QUESTION_MARK = "Interface\\Icons\\INV_Misc_QuestionMark"
 
+-- Parse #showtooltip from macrotext to get the spell/item name
+local function ParseShowtooltip(macrotext)
+    if not macrotext then return nil end
+    local line = macrotext:match("^#showtooltip%s*(.-)\n") or macrotext:match("^#showtooltip%s*(.-)$")
+    if line and line ~= "" then
+        -- Strip any conditionals like [spec:1] and get the spell name
+        -- For now, just grab the first non-conditional word(s)
+        local name = line:match("%]%s*(.+)") or line
+        -- If multiple spells separated by ;, take the first
+        name = name:match("^([^;]+)")
+        if name then
+            return name:match("^%s*(.-)%s*$") -- trim
+        end
+    end
+    return nil
+end
+
 ---------------------------------------------------------------------------
 -- Helpers: Get spell/item info via modern APIs
 ---------------------------------------------------------------------------
@@ -101,6 +118,18 @@ function Button:GetTexture(btn)
         end
         return GetItemIcon(value)
     elseif cmd == "macro" then
+        -- Check for #showtooltip in custom macrotext
+        if btn.bbMacrotext then
+            local showName = ParseShowtooltip(btn.bbMacrotext)
+            if showName then
+                -- Try as spell first, then item
+                local tex = GetSpellIcon(showName)
+                if tex then return tex end
+                tex = C_Item.GetItemIconByID(showName)
+                if tex then return tex end
+            end
+        end
+        -- Fall back to the macro's own icon
         local info = C_Macro.GetMacroInfo(value)
         return info and info.iconID
     elseif cmd == "mount" then
@@ -264,7 +293,22 @@ function Button:ShowTooltip(btn)
     elseif cmd == "item" then
         GameTooltip:SetItemByID(value)
     elseif cmd == "macro" then
-        GameTooltip:SetText(value)
+        -- Show resolved spell tooltip if #showtooltip is set
+        if btn.bbMacrotext then
+            local showName = ParseShowtooltip(btn.bbMacrotext)
+            if showName then
+                local spellInfo = C_Spell.GetSpellInfo(showName)
+                if spellInfo then
+                    GameTooltip:SetSpellByID(spellInfo.spellID)
+                else
+                    GameTooltip:SetText(showName)
+                end
+            else
+                GameTooltip:SetText(value)
+            end
+        else
+            GameTooltip:SetText(value)
+        end
     elseif cmd == "mount" then
         local name = C_MountJournal.GetMountInfoByID(value)
         GameTooltip:SetText(name or "Mount")
@@ -454,29 +498,47 @@ end
 -- Set / Clear button action
 ---------------------------------------------------------------------------
 
-function Button:SetAction(btn, command, value, subValue, id)
+function Button:SetAction(btn, command, value, subValue, id, macrotext)
     btn.bbCommand = command
     btn.bbValue = value
     btn.bbSubValue = subValue
     btn.bbID = id
+    btn.bbMacrotext = macrotext
 
     -- Set secure attributes for combat
     if command == "spell" then
         btn:SetAttribute("type", "spell")
-        -- Use spell name for the attribute (works reliably with SecureActionButton)
         local spellName = value
         if id then
             spellName = GetSpellName(id) or value
         end
         btn:SetAttribute("spell", spellName)
-        -- print("BazBars SetAction: type=spell, spell=" .. tostring(spellName) .. ", id=" .. tostring(id))
+        -- Right-click self-cast
+        if btn.bbBarData and btn.bbBarData.rightClickSelfCast then
+            btn:SetAttribute("type2", "spell")
+            btn:SetAttribute("spell2", spellName)
+            btn:SetAttribute("unit2", "player")
+        end
     elseif command == "item" then
         local itemName = GetItemName(value) or value
         btn:SetAttribute("type", "item")
         btn:SetAttribute("item", itemName)
+        -- Right-click self-cast
+        if btn.bbBarData and btn.bbBarData.rightClickSelfCast then
+            btn:SetAttribute("type2", "item")
+            btn:SetAttribute("item2", itemName)
+            btn:SetAttribute("unit2", "player")
+        end
     elseif command == "macro" then
-        btn:SetAttribute("type", "macro")
-        btn:SetAttribute("macro", value)
+        if macrotext and macrotext ~= "" then
+            btn:SetAttribute("type", "macro")
+            btn:SetAttribute("macrotext", macrotext)
+            btn:SetAttribute("macro", nil)
+        else
+            btn:SetAttribute("type", "macro")
+            btn:SetAttribute("macro", value)
+            btn:SetAttribute("macrotext", nil)
+        end
     elseif command == "mount" then
         -- Use mount via macro
         local name = C_MountJournal.GetMountInfoByID(value)
@@ -506,15 +568,51 @@ function Button:ClearAction(btn)
     btn.bbValue = nil
     btn.bbSubValue = nil
     btn.bbID = nil
+    btn.bbMacrotext = nil
 
     btn:SetAttribute("type", nil)
+    btn:SetAttribute("type2", nil)
     btn:SetAttribute("spell", nil)
+    btn:SetAttribute("spell2", nil)
     btn:SetAttribute("item", nil)
+    btn:SetAttribute("item2", nil)
+    btn:SetAttribute("unit2", nil)
     btn:SetAttribute("macro", nil)
     btn:SetAttribute("macrotext", nil)
 
     Button:UpdateButton(btn)
     Button:SaveButton(btn)
+end
+
+---------------------------------------------------------------------------
+-- Re-apply self-cast attributes to all buttons on a bar
+---------------------------------------------------------------------------
+
+function Button:ApplySelfCast(barFrame)
+    local enabled = barFrame.barData.rightClickSelfCast
+    for r, row in pairs(barFrame.buttons) do
+        for c, btn in pairs(row) do
+            if btn.bbCommand then
+                if enabled and btn.bbCommand == "spell" then
+                    local spellName = btn.bbValue
+                    if btn.bbID then spellName = GetSpellName(btn.bbID) or btn.bbValue end
+                    btn:SetAttribute("type2", "spell")
+                    btn:SetAttribute("spell2", spellName)
+                    btn:SetAttribute("unit2", "player")
+                elseif enabled and btn.bbCommand == "item" then
+                    local itemName = GetItemName(btn.bbValue) or btn.bbValue
+                    btn:SetAttribute("type2", "item")
+                    btn:SetAttribute("item2", itemName)
+                    btn:SetAttribute("unit2", "player")
+                else
+                    btn:SetAttribute("type2", nil)
+                    btn:SetAttribute("spell2", nil)
+                    btn:SetAttribute("item2", nil)
+                    btn:SetAttribute("unit2", nil)
+                end
+            end
+        end
+    end
 end
 
 ---------------------------------------------------------------------------
@@ -552,6 +650,7 @@ function Button:SaveButton(btn)
             value = btn.bbValue,
             subValue = btn.bbSubValue,
             id = btn.bbID,
+            macrotext = btn.bbMacrotext,
         }
     else
         db.buttons[key] = nil
@@ -570,7 +669,7 @@ function Button:LoadButton(btn)
     local data = db.buttons[key]
 
     if data then
-        Button:SetAction(btn, data.command, data.value, data.subValue, data.id)
+        Button:SetAction(btn, data.command, data.value, data.subValue, data.id, data.macrotext)
     end
 end
 

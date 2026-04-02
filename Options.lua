@@ -35,8 +35,26 @@ local function GetOptionsTable()
                     addon:CreateNewBar()
                 end,
             },
-            spacer1 = {
+            minimapIcon = {
                 order = 3,
+                type = "toggle",
+                name = "Show Minimap Button",
+                desc = "Show or hide the BazBars minimap button",
+                get = function() return not addon.db.profile.minimap.hide end,
+                set = function(_, val)
+                    addon.db.profile.minimap.hide = not val
+                    local LDBIcon = LibStub("LibDBIcon-1.0", true)
+                    if LDBIcon then
+                        if val then
+                            LDBIcon:Show("BazBars")
+                        else
+                            LDBIcon:Hide("BazBars")
+                        end
+                    end
+                end,
+            },
+            spacer1 = {
+                order = 4,
                 type = "description",
                 name = "\n",
             },

@@ -246,6 +246,40 @@ function addon:SlashCommand(input)
         local id = self:CreateNewBar(cols, rows)
         self:Print(("Created Bar %d (%dx%d). Use Edit Mode or /bb to configure."):format(id, cols, rows))
 
+    elseif cmd == "export" then
+        local id = tonumber(args[2])
+        if id then
+            local str = self:ExportBar(id)
+            if str then
+                -- Show in a copyable popup
+                self.EditSettings:ShowExportString(str)
+            else
+                self:Print("Bar " .. id .. " not found.")
+            end
+        else
+            self:Print("Usage: /bb export <bar id>")
+        end
+
+    elseif cmd == "import" then
+        -- Everything after "import " is the string
+        local importStr = input:match("^%S+%s+(.+)$")
+        if importStr then
+            self:ImportBar(importStr)
+        else
+            self.EditSettings:ShowImportDialog()
+        end
+
+    elseif cmd == "duplicate" or cmd == "dup" or cmd == "copy" then
+        local id = tonumber(args[2])
+        if id then
+            local newID = self:DuplicateBar(id)
+            if newID then
+                self:Print(("Duplicated Bar %d as Bar %d."):format(id, newID))
+            end
+        else
+            self:Print("Usage: /bb duplicate <bar id>")
+        end
+
     elseif cmd == "delete" or cmd == "remove" then
         local id = tonumber(args[2])
         if id then
@@ -309,6 +343,128 @@ function addon:SlashCommand(input)
 end
 
 ---------------------------------------------------------------------------
+-- Import / Export
+---------------------------------------------------------------------------
+
+local B64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
+
+local function base64encode(data)
+    return ((data:gsub('.', function(x)
+        local r, b = '', x:byte()
+        for i = 8, 1, -1 do r = r .. (b % 2^i - b % 2^(i-1) > 0 and '1' or '0') end
+        return r
+    end) .. '0000'):gsub('%d%d%d?%d?%d?%d?', function(x)
+        if #x < 6 then return '' end
+        local c = 0
+        for i = 1, 6 do c = c + (x:sub(i, i) == '1' and 2^(6-i) or 0) end
+        return B64:sub(c+1, c+1)
+    end) .. ({ '', '==', '=' })[#data % 3 + 1])
+end
+
+local function base64decode(data)
+    data = data:gsub('[^' .. B64 .. '=]', '')
+    return (data:gsub('.', function(x)
+        if x == '=' then return '' end
+        local r, f = '', (B64:find(x) - 1)
+        for i = 6, 1, -1 do r = r .. (f % 2^i - f % 2^(i-1) > 0 and '1' or '0') end
+        return r
+    end):gsub('%d%d%d?%d?%d?%d?%d?%d?', function(x)
+        if #x ~= 8 then return '' end
+        local c = 0
+        for i = 1, 8 do c = c + (x:sub(i, i) == '1' and 2^(8-i) or 0) end
+        return string.char(c)
+    end))
+end
+
+local function serializeValue(val, depth)
+    depth = depth or 0
+    if depth > 10 then return "nil" end
+    local t = type(val)
+    if t == "string" then
+        return string.format("%q", val)
+    elseif t == "number" or t == "boolean" then
+        return tostring(val)
+    elseif t == "table" then
+        local parts = {}
+        for k, v in pairs(val) do
+            local key
+            if type(k) == "number" then
+                key = "[" .. k .. "]"
+            else
+                key = "[" .. string.format("%q", k) .. "]"
+            end
+            parts[#parts + 1] = key .. "=" .. serializeValue(v, depth + 1)
+        end
+        return "{" .. table.concat(parts, ",") .. "}"
+    end
+    return "nil"
+end
+
+function addon:ExportBar(barID)
+    local barData = self.db.profile.bars[barID]
+    if not barData then return nil end
+
+    local exportData = CopyTable(barData)
+    exportData.pos = nil -- don't export position
+    exportData.id = nil  -- will be reassigned on import
+
+    local serialized = "BAZBAR1:" .. serializeValue(exportData)
+    return base64encode(serialized)
+end
+
+function addon:ImportBar(encodedString)
+    if not encodedString or encodedString == "" then
+        self:Print("No import string provided.")
+        return
+    end
+
+    local decoded = base64decode(encodedString)
+    if not decoded or not decoded:match("^BAZBAR1:") then
+        self:Print("Invalid import string.")
+        return
+    end
+
+    local tableStr = decoded:sub(9) -- strip "BAZBAR1:"
+    local func, err = loadstring("return " .. tableStr)
+    if not func then
+        self:Print("Failed to parse import data.")
+        return
+    end
+
+    -- Sandbox: run in empty environment
+    setfenv(func, {})
+    local ok, barData = pcall(func)
+    if not ok or type(barData) ~= "table" then
+        self:Print("Invalid bar data in import string.")
+        return
+    end
+
+    -- Assign new ID and create
+    local newID = self.Bar:GetNextID()
+    barData.id = newID
+    barData.pos = nil -- center of screen
+
+    self.db.profile.bars[newID] = barData
+    local frame = self.Bar:Create(barData)
+
+    for r, row in pairs(frame.buttons) do
+        for c, btn in pairs(row) do
+            self.Button:LoadButton(btn)
+        end
+    end
+
+    self.Bar:ApplyVisibility(frame)
+    self.Bar:UpdateSlotArt(frame)
+    self.Bar:UpdateButtonVisibility(frame)
+    self.Bar:SetBarAlpha(frame, barData.alpha or 1.0)
+    self.Bar:ApplyMouseoverFade(frame)
+    self.Options:Refresh()
+
+    self:Print("Imported as Bar " .. newID .. ".")
+    return newID
+end
+
+---------------------------------------------------------------------------
 -- Bar Management (called from commands and options)
 ---------------------------------------------------------------------------
 
@@ -328,6 +484,44 @@ function addon:CreateNewBar(cols, rows)
     self.Options:Refresh()
 
     return id
+end
+
+function addon:DuplicateBar(sourceID)
+    if InCombatLockdown() then
+        self:Print("Cannot duplicate bars during combat.")
+        return
+    end
+
+    local sourceData = self.db.profile.bars[sourceID]
+    if not sourceData then
+        self:Print("Bar " .. sourceID .. " not found.")
+        return
+    end
+
+    local newID = self.Bar:GetNextID()
+    local newData = CopyTable(sourceData)
+    newData.id = newID
+    newData.pos = nil -- reset position so it doesn't overlap
+    newData.customName = (newData.customName or ("Bar " .. sourceID)) .. " (Copy)"
+
+    self.db.profile.bars[newID] = newData
+    local frame = self.Bar:Create(newData)
+
+    -- Load duplicated button assignments
+    for r, row in pairs(frame.buttons) do
+        for c, btn in pairs(row) do
+            self.Button:LoadButton(btn)
+        end
+    end
+
+    self.Bar:ApplyVisibility(frame)
+    self.Bar:UpdateSlotArt(frame)
+    self.Bar:UpdateButtonVisibility(frame)
+    self.Bar:SetBarAlpha(frame, newData.alpha or 1.0)
+    self.Bar:ApplyMouseoverFade(frame)
+    self.Options:Refresh()
+
+    return newID
 end
 
 function addon:DeleteBar(id)

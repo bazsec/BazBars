@@ -6,7 +6,7 @@ BazBars = BazBars or {}
 local addon = LibStub("AceAddon-3.0"):NewAddon("BazBars", "AceConsole-3.0", "AceEvent-3.0")
 
 BazBars.ADDON_NAME = "BazBars"
-BazBars.VERSION = "007"
+BazBars.VERSION = "008"
 
 -- Button defaults
 BazBars.DEFAULT_BUTTON_SIZE = 45
@@ -55,6 +55,7 @@ function BazBars.DefaultBarData(id)
         customName = nil,
         mouseoverFade = false,
         mouseoverAlpha = 0.3,
+        rightClickSelfCast = false,
     }
 end
 
