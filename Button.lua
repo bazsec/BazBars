@@ -130,9 +130,13 @@ function Button:GetTexture(btn)
             end
         end
         -- Fall back to the macro's own icon
-        local info = C_Macro.GetMacroInfo(value)
-        return info and info.iconID
+        local _, iconID = GetMacroInfo(value)
+        return iconID
     elseif cmd == "mount" then
+        if value == 268435455 then
+            -- Random Favorite Mount icon
+            return 413588 -- Interface\Icons\Mount_Random
+        end
         local name, spellID, icon = C_MountJournal.GetMountInfoByID(value)
         return icon
     elseif cmd == "battlepet" then
@@ -294,6 +298,7 @@ function Button:ShowTooltip(btn)
         GameTooltip:SetItemByID(value)
     elseif cmd == "macro" then
         -- Show resolved spell tooltip if #showtooltip is set
+        local macroName = GetMacroInfo(value) or value
         if btn.bbMacrotext then
             local showName = ParseShowtooltip(btn.bbMacrotext)
             if showName then
@@ -304,14 +309,18 @@ function Button:ShowTooltip(btn)
                     GameTooltip:SetText(showName)
                 end
             else
-                GameTooltip:SetText(value)
+                GameTooltip:SetText(macroName)
             end
         else
-            GameTooltip:SetText(value)
+            GameTooltip:SetText(macroName)
         end
     elseif cmd == "mount" then
-        local name = C_MountJournal.GetMountInfoByID(value)
-        GameTooltip:SetText(name or "Mount")
+        if value == 268435455 then
+            GameTooltip:SetText("Summon Random Favorite Mount")
+        else
+            local name = C_MountJournal.GetMountInfoByID(value)
+            GameTooltip:SetText(name or "Mount")
+        end
     elseif cmd == "battlepet" then
         local link = C_PetJournal.GetBattlePetLink(value)
         if link then
@@ -382,9 +391,7 @@ end
 function Button:UpdateMacroName(btn)
     if not btn.Name then return end
     if btn.bbCommand == "macro" and btn.bbValue then
-        local name
-        local info = C_Macro.GetMacroInfo(btn.bbValue)
-        name = info and info.name
+        local name = GetMacroInfo(btn.bbValue)
         if name then
             btn.Name:SetText(name)
             btn.Name:Show()
@@ -422,8 +429,6 @@ function Button:ReceiveDrag(btn)
 
     local cursorCommand, cursorValue, cursorSubValue, cursorID = GetCursorInfo()
     if not cursorCommand then return end
-
-    -- print("BazBars cursor:", cursorCommand, cursorValue, cursorSubValue, cursorID)
 
     -- Normalize spell: GetCursorInfo returns (spell, slotIndex, "spell", spellID)
     -- We want to store the spellID and resolve the name from it
@@ -482,7 +487,7 @@ function Button:PickUp(btn)
             C_Item.PickupItem(value)
         end
     elseif cmd == "macro" then
-        C_Macro.PickupMacro(value)
+        PickupMacro(value)
     elseif cmd == "mount" then
         C_MountJournal.Pickup(0) -- index, not ideal but fallback
     elseif cmd == "battlepet" then
@@ -520,14 +525,26 @@ function Button:SetAction(btn, command, value, subValue, id, macrotext)
             btn:SetAttribute("unit2", "player")
         end
     elseif command == "item" then
-        local itemName = GetItemName(value) or value
-        btn:SetAttribute("type", "item")
-        btn:SetAttribute("item", itemName)
-        -- Right-click self-cast
-        if btn.bbBarData and btn.bbBarData.rightClickSelfCast then
-            btn:SetAttribute("type2", "item")
-            btn:SetAttribute("item2", itemName)
-            btn:SetAttribute("unit2", "player")
+        if PlayerHasToy and PlayerHasToy(tonumber(value) or 0) then
+            -- Toys: get name from ToyBox API and use via macrotext
+            local _, toyName = C_ToyBox.GetToyInfo(tonumber(value))
+            if toyName then
+                btn:SetAttribute("type", "macro")
+                btn:SetAttribute("macrotext", "/cast " .. toyName)
+            else
+                btn:SetAttribute("type", "toy")
+                btn:SetAttribute("toy", tonumber(value))
+            end
+        else
+            local itemName = GetItemName(value) or value
+            btn:SetAttribute("type", "item")
+            btn:SetAttribute("item", itemName)
+            -- Right-click self-cast
+            if btn.bbBarData and btn.bbBarData.rightClickSelfCast then
+                btn:SetAttribute("type2", "item")
+                btn:SetAttribute("item2", itemName)
+                btn:SetAttribute("unit2", "player")
+            end
         end
     elseif command == "macro" then
         if macrotext and macrotext ~= "" then
@@ -541,10 +558,16 @@ function Button:SetAction(btn, command, value, subValue, id, macrotext)
         end
     elseif command == "mount" then
         -- Use mount via macro
-        local name = C_MountJournal.GetMountInfoByID(value)
-        if name then
+        if value == 268435455 then
+            -- Special "Random Favorite Mount" ID
             btn:SetAttribute("type", "macro")
-            btn:SetAttribute("macrotext", "/cast " .. name)
+            btn:SetAttribute("macrotext", "/run C_MountJournal.SummonByID(0)")
+        else
+            local name = C_MountJournal.GetMountInfoByID(value)
+            if name then
+                btn:SetAttribute("type", "macro")
+                btn:SetAttribute("macrotext", "/cast " .. name)
+            end
         end
     elseif command == "battlepet" then
         local speciesID, customName, level, xp, maxXp, displayID, petName = C_PetJournal.GetPetInfoByPetID(value)
