@@ -504,6 +504,10 @@ end
 ---------------------------------------------------------------------------
 
 function Button:SetAction(btn, command, value, subValue, id, macrotext)
+    -- Block actions while Shift is held (prevents firing during Shift+Drag removal)
+    btn:SetAttribute("shift-type1", "noop")
+    btn:SetAttribute("shift-type2", "noop")
+
     btn.bbCommand = command
     btn.bbValue = value
     btn.bbSubValue = subValue
@@ -595,6 +599,8 @@ function Button:ClearAction(btn)
 
     btn:SetAttribute("type", nil)
     btn:SetAttribute("type2", nil)
+    btn:SetAttribute("shift-type1", nil)
+    btn:SetAttribute("shift-type2", nil)
     btn:SetAttribute("spell", nil)
     btn:SetAttribute("spell2", nil)
     btn:SetAttribute("item", nil)
