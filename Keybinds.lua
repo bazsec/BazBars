@@ -241,7 +241,7 @@ function Keybinds:EnterMode()
     -- Deselect bar and hide edit overlays so they don't clutter keybind mode
     addon.Bar:DeselectAll()
     for id, frame in pairs(addon.Bar:GetAll()) do
-        frame.dragOverlay:Hide()
+        frame._bazEditOverlay:Hide()
     end
 
     keybindFrame:Show()
@@ -329,7 +329,7 @@ function Keybinds:ExitMode()
     -- Restore Edit Mode overlays if still in Edit Mode
     if EditModeManagerFrame and EditModeManagerFrame:IsEditModeActive() then
         for id, frame in pairs(addon.Bar:GetAll()) do
-            frame.dragOverlay:Show()
+            frame._bazEditOverlay:Show()
         end
     end
 end
