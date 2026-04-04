@@ -12,7 +12,7 @@
 <p align="center">
   <img src="https://img.shields.io/badge/WoW-12.0%20Midnight-blue" alt="WoW Version"/>
   <img src="https://img.shields.io/badge/License-GPL%20v2-green" alt="License"/>
-  <img src="https://img.shields.io/badge/Version-009-orange" alt="Version"/>
+  <img src="https://img.shields.io/badge/Version-010-orange" alt="Version"/>
 </p>
 
 ---
