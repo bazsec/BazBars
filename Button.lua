@@ -430,11 +430,16 @@ function Button:ReceiveDrag(btn)
     -- Normalize spell: GetCursorInfo returns (spell, slotIndex, "spell", spellID)
     -- We want to store the spellID and resolve the name from it
     if cursorCommand == "spell" then
-        -- cursorValue = slot index, cursorID = spellID
         local spellID = cursorID
         local spellName = GetSpellName(spellID)
         cursorValue = spellName or cursorValue
         cursorID = spellID
+    end
+
+
+    -- Normalize companion → mount (older API compat)
+    if cursorCommand == "companion" then
+        cursorCommand = "mount"
     end
 
     if not BazBars.ACCEPTED_TYPES[cursorCommand] then
@@ -464,8 +469,22 @@ function Button:StartDrag(btn)
     if not IsShiftKeyDown() then return end
 
     if btn.bbCommand then
-        Button:PickUp(btn)
-        Button:ClearAction(btn)
+        if btn.bbCommand == "mount" or btn.bbCommand == "battlepet" then
+            -- Can't use WoW cursor for these — use internal move
+            local iconTex = btn.icon and btn.icon:GetTexture()
+            Button.pendingMove = {
+                command = btn.bbCommand,
+                value = btn.bbValue,
+                subValue = btn.bbSubValue,
+                id = btn.bbID,
+                macrotext = btn.bbMacrotext,
+            }
+            Button:ClearAction(btn)
+            Button:ShowCursorIcon(iconTex)
+        else
+            Button:PickUp(btn)
+            Button:ClearAction(btn)
+        end
     end
 end
 
@@ -486,7 +505,8 @@ function Button:PickUp(btn)
     elseif cmd == "macro" then
         PickupMacro(value)
     elseif cmd == "mount" then
-        C_MountJournal.Pickup(0) -- index, not ideal but fallback
+        -- Can't reliably pick up mounts onto cursor — just clear the button
+        -- User can re-drag from mount journal
     elseif cmd == "battlepet" then
         C_PetJournal.PickupPet(value)
     elseif cmd == "equipmentset" then
@@ -571,8 +591,15 @@ function Button:SetAction(btn, command, value, subValue, id, macrotext)
             end
         end
     elseif command == "battlepet" then
-        local speciesID, customName, level, xp, maxXp, displayID, petName = C_PetJournal.GetPetInfoByPetID(value)
-        if petName then
+        local speciesID, customName = C_PetJournal.GetPetInfoByPetID(value)
+        local petName = customName
+        if not petName or type(petName) ~= "string" or petName == "" then
+            -- Fall back to species name
+            if speciesID then
+                petName = C_PetJournal.GetPetInfoBySpeciesID(speciesID)
+            end
+        end
+        if petName and type(petName) == "string" then
             btn:SetAttribute("type", "macro")
             btn:SetAttribute("macrotext", "/summonpet " .. petName)
         end
@@ -700,6 +727,38 @@ function Button:LoadButton(btn)
 end
 
 ---------------------------------------------------------------------------
+-- Cursor icon for internal moves (mounts/battlepets)
+---------------------------------------------------------------------------
+
+local cursorIcon = nil
+
+function Button:ShowCursorIcon(texture)
+    if not cursorIcon then
+        cursorIcon = CreateFrame("Frame", nil, UIParent)
+        cursorIcon:SetSize(32, 32)
+        cursorIcon:SetFrameStrata("TOOLTIP")
+        cursorIcon:SetFrameLevel(9999)
+        cursorIcon.tex = cursorIcon:CreateTexture(nil, "ARTWORK")
+        cursorIcon.tex:SetAllPoints()
+    end
+    cursorIcon.tex:SetTexture(texture or "Interface\\Icons\\INV_Misc_QuestionMark")
+    cursorIcon:Show()
+    cursorIcon:SetScript("OnUpdate", function(self)
+        local x, y = GetCursorPosition()
+        local scale = UIParent:GetEffectiveScale()
+        self:ClearAllPoints()
+        self:SetPoint("CENTER", UIParent, "BOTTOMLEFT", x / scale, y / scale)
+    end)
+end
+
+function Button:HideCursorIcon()
+    if cursorIcon then
+        cursorIcon:SetScript("OnUpdate", nil)
+        cursorIcon:Hide()
+    end
+end
+
+---------------------------------------------------------------------------
 -- Global handlers (called from XML)
 ---------------------------------------------------------------------------
 
@@ -716,6 +775,15 @@ function BazBarsButton_OnDragStart(self)
 end
 
 function BazBarsButton_PostClick(self, button)
+    -- Handle pending internal move (mounts/battlepets)
+    if Button.pendingMove and button == "LeftButton" and not InCombatLockdown() then
+        local move = Button.pendingMove
+        Button.pendingMove = nil
+        Button:HideCursorIcon()
+        Button:SetAction(self, move.command, move.value, move.subValue, move.id, move.macrotext)
+        return
+    end
+
     -- Shift+Right-click: clear the button
     if button == "RightButton" and IsShiftKeyDown() and not InCombatLockdown() then
         if self.bbCommand then

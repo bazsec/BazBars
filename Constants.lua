@@ -33,6 +33,7 @@ BazBars.ACCEPTED_TYPES = {
     item = true,
     macro = true,
     mount = true,
+    companion = true,
     battlepet = true,
     equipmentset = true,
 }

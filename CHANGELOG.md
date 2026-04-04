@@ -1,5 +1,12 @@
 # BazBars Changelog
 
+## 013 - Mount, Pet & Drag Fixes
+- Fixed mount shift-drag turning mounts into Random Mount
+- Fixed battlepet SetAction crash (API return value change in Midnight)
+- Mounts and battlepets now use internal move system with floating cursor icon
+- Added companion cursor type support for mount journal compatibility
+- Shift+RightClick still removes mounts/battlepets from buttons
+
 ## 012 - Edit Mode Framework
 - Edit Mode now powered by BazCore's shared EditMode framework
 - Grid snapping, selection sync, and settings popup handled by BazCore
