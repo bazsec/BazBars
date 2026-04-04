@@ -15,8 +15,6 @@ local UIParent = UIParent
 local InCombatLockdown = InCombatLockdown
 local RegisterStateDriver = RegisterStateDriver
 local UnregisterStateDriver = UnregisterStateDriver
-local GameTooltip = GameTooltip
-local GameTooltip_Hide = GameTooltip_Hide
 
 local bars = {}
 Bar.bars = bars
@@ -56,12 +54,8 @@ function Bar:Create(barData)
     -- Position: restore saved or default
     Bar:RestorePosition(frame, barData)
 
-    -- Edit Mode drag overlay (hidden by default, shown in Edit Mode)
-    Bar:CreateDragOverlay(frame)
-
-    -- Check if Edit Mode is currently active
-    local editing = EditModeManagerFrame and EditModeManagerFrame:IsEditModeActive()
-    Bar:SetEditMode(frame, editing)
+    -- Register with BazCore Edit Mode framework
+    Bar:RegisterEditMode(frame, barData)
 
     bars[id] = frame
     frame:Show()
@@ -243,264 +237,137 @@ function Bar:LayoutButtons(frame, barData)
 end
 
 ---------------------------------------------------------------------------
--- Edit Mode Drag Overlay
+-- Edit Mode Registration (via BazCore EditMode framework)
 ---------------------------------------------------------------------------
 
--- Blizzard Edit Mode nine-slice layout (matches EditModeSystemSelectionLayout)
-local EditModeNineSliceLayout = {
-    ["TopRightCorner"]  = { atlas = "%s-NineSlice-Corner", mirrorLayout = true, x = 8, y = 8 },
-    ["TopLeftCorner"]   = { atlas = "%s-NineSlice-Corner", mirrorLayout = true, x = -8, y = 8 },
-    ["BottomLeftCorner"]  = { atlas = "%s-NineSlice-Corner", mirrorLayout = true, x = -8, y = -8 },
-    ["BottomRightCorner"] = { atlas = "%s-NineSlice-Corner", mirrorLayout = true, x = 8, y = -8 },
-    ["TopEdge"]    = { atlas = "_%s-NineSlice-EdgeTop" },
-    ["BottomEdge"] = { atlas = "_%s-NineSlice-EdgeBottom" },
-    ["LeftEdge"]   = { atlas = "!%s-NineSlice-EdgeLeft" },
-    ["RightEdge"]  = { atlas = "!%s-NineSlice-EdgeRight" },
-    ["Center"]     = { atlas = "%s-NineSlice-Center", x = -8, y = 8, x1 = 8, y1 = -8 },
-}
+function Bar:RegisterEditMode(frame, barData)
+    local bd = barData
 
-local selectedBar = nil -- only one bar can be selected at a time
+    BazCore:RegisterEditModeFrame(frame, {
+        label = Bar:GetDisplayName(frame),
+        addonName = "BazBars",
+        positionKey = false, -- BazBars manages its own barData.pos
 
--- Snap preview lines
-local snapLineH, snapLineV
+        settings = {
+            -- Layout
+            { type = "input", key = "customName", label = "Bar Name", section = "Layout",
+              get = function() return bd.customName or "" end,
+              set = function(v)
+                  Bar:SetCustomName(frame, v)
+              end },
+            { type = "dropdown", key = "orientation", label = "Orientation", section = "Layout",
+              options = { { label = "Horizontal", value = "horizontal" }, { label = "Vertical", value = "vertical" } },
+              get = function() return bd.orientation or "horizontal" end,
+              set = function(v)
+                  bd.orientation = v
+                  addon.db.profile.bars[bd.id].orientation = v
+                  Bar:LayoutButtons(frame, bd)
+              end },
+            { type = "slider", key = "rows", label = "# of Rows", section = "Layout",
+              min = 1, max = BazBars.MAX_ROWS, step = 1,
+              get = function() return bd.rows end,
+              set = function(v)
+                  Bar:Resize(frame, v, bd.cols, bd.spacing)
+              end },
+            { type = "slider", key = "cols", label = "# of Icons", section = "Layout",
+              min = 1, max = BazBars.MAX_COLS, step = 1,
+              get = function() return bd.cols end,
+              set = function(v)
+                  Bar:Resize(frame, bd.rows, v, bd.spacing)
+              end },
+            { type = "slider", key = "scale", label = "Icon Size", section = "Layout",
+              min = 50, max = 250, step = 5,
+              format = function(v) return math.floor(v + 0.5) .. "%" end,
+              get = function() return (bd.scale or 1) * 100 end,
+              set = function(v)
+                  Bar:SetScale(frame, v / 100)
+              end },
+            { type = "slider", key = "spacing", label = "Icon Padding", section = "Layout",
+              min = 0, max = 20, step = 1,
+              get = function() return bd.spacing end,
+              set = function(v)
+                  Bar:Resize(frame, bd.rows, bd.cols, v)
+              end },
+            { type = "nudge", section = "Layout" },
 
-local function GetSnapLines()
-    if not snapLineH then
-        snapLineH = UIParent:CreateTexture(nil, "OVERLAY")
-        snapLineH:SetColorTexture(0.8, 0, 0, 0.8)
-        snapLineH:SetHeight(2)
-        snapLineH:Hide()
-    end
-    if not snapLineV then
-        snapLineV = UIParent:CreateTexture(nil, "OVERLAY")
-        snapLineV:SetColorTexture(0.8, 0, 0, 0.8)
-        snapLineV:SetWidth(2)
-        snapLineV:Hide()
-    end
-    return snapLineH, snapLineV
-end
+            -- Appearance
+            { type = "checkbox", key = "alwaysShowButtons", label = "Always Show Buttons", section = "Appearance",
+              get = function() return bd.alwaysShowButtons ~= false end,
+              set = function(v)
+                  bd.alwaysShowButtons = v
+                  addon.db.profile.bars[bd.id].alwaysShowButtons = v
+                  Bar:UpdateButtonVisibility(frame)
+              end },
+            { type = "checkbox", key = "showSlotArt", label = "Show Slot Art", section = "Appearance",
+              get = function() return bd.showSlotArt ~= false end,
+              set = function(v)
+                  bd.showSlotArt = v
+                  addon.db.profile.bars[bd.id].showSlotArt = v
+                  Bar:UpdateSlotArt(frame)
+              end },
+            { type = "slider", key = "alpha", label = "Bar Opacity", section = "Appearance",
+              min = 0, max = 100, step = 5,
+              format = function(v) return math.floor(v + 0.5) .. "%" end,
+              get = function() return (bd.alpha or 1.0) * 100 end,
+              set = function(v)
+                  Bar:SetBarAlpha(frame, v / 100)
+              end },
+            { type = "checkbox", key = "mouseoverFade", label = "Mouseover Fade", section = "Appearance",
+              get = function() return bd.mouseoverFade or false end,
+              set = function(v)
+                  bd.mouseoverFade = v
+                  addon.db.profile.bars[bd.id].mouseoverFade = v
+                  Bar:ApplyMouseoverFade(frame)
+              end },
+            { type = "dropdown", key = "visibilityMacro", label = "Bar Visible", section = "Appearance",
+              options = {
+                  { label = "Always Visible", value = "" },
+                  { label = "In Combat", value = "[combat] show; hide" },
+                  { label = "Out of Combat", value = "[nocombat] show; hide" },
+                  { label = "With Target", value = "[exists] show; hide" },
+                  { label = "On Mouseover", value = "[mod:shift] show; hide" },
+              },
+              get = function() return bd.visibilityMacro or "" end,
+              set = function(v)
+                  Bar:SetVisibilityMacro(frame, v)
+              end },
 
-local function ShowSnapPreview(frame)
-    if not (EditModeManagerFrame and EditModeManagerFrame.Grid
-        and EditModeManagerFrame.Grid:IsShown()
-        and EditModeManagerFrame.Grid.gridSpacing) then
-        return
-    end
+            -- Behavior
+            { type = "checkbox", key = "rightClickSelfCast", label = "Right-Click Self-Cast", section = "Behavior",
+              get = function() return bd.rightClickSelfCast or false end,
+              set = function(v)
+                  bd.rightClickSelfCast = v
+                  addon.db.profile.bars[bd.id].rightClickSelfCast = v
+                  addon.Button:ApplySelfCast(frame)
+              end },
+        },
 
-    local spacing = EditModeManagerFrame.Grid.gridSpacing
-    local cx, cy = frame:GetCenter()
-    local scale = frame:GetScale()
-    if not (cx and cy and spacing > 0) then return end
+        actions = {
+            { label = "Revert Changes", builtin = "revert" },
+            { label = "Reset Position", builtin = "resetPosition" },
+            { label = "Quick Keybind Mode", onClick = function() addon.Keybinds:EnterMode() end },
+            { label = "Edit Button Macrotext", onClick = function()
+                if addon.Dialogs then addon.Dialogs:OpenMacrotextEditor(frame) end
+            end },
+            { label = "BazBars Settings", onClick = function() addon.Options:Open() end },
+            { label = "Export Bar Config", onClick = function()
+                local str = addon:ExportBar(bd.id)
+                if str and addon.Dialogs then addon.Dialogs:ShowExportString(str) end
+            end },
+            { label = "Duplicate This Bar", onClick = function()
+                local newID = addon:DuplicateBar(bd.id)
+                if newID then
+                    addon:Print(("Duplicated Bar %d as Bar %d."):format(bd.id, newID))
+                end
+            end },
+            { label = "|cffff4444Delete This Bar|r", onClick = function()
+                BazCore:DeselectEditFrame(frame)
+                addon:DeleteBar(bd.id)
+            end },
+        },
 
-    cx = cx * scale
-    cy = cy * scale
-
-    -- Grid is drawn from center of UIParent, so snap relative to that origin
-    local gridCX, gridCY = EditModeManagerFrame.Grid:GetCenter()
-
-    -- Offset from grid center, snap to nearest grid line, then back to absolute
-    local relX = cx - gridCX
-    local relY = cy - gridCY
-    local snapX = gridCX + math.floor(relX / spacing + 0.5) * spacing
-    local snapY = gridCY + math.floor(relY / spacing + 0.5) * spacing
-
-    local hLine, vLine = GetSnapLines()
-
-    -- Horizontal line (shows the Y snap)
-    hLine:ClearAllPoints()
-    hLine:SetPoint("LEFT", UIParent, "BOTTOMLEFT", 0, snapY)
-    hLine:SetPoint("RIGHT", UIParent, "BOTTOMRIGHT", 0, snapY)
-    hLine:Show()
-
-    -- Vertical line (shows the X snap)
-    vLine:ClearAllPoints()
-    vLine:SetPoint("TOP", UIParent, "BOTTOMLEFT", snapX, UIParent:GetHeight())
-    vLine:SetPoint("BOTTOM", UIParent, "BOTTOMLEFT", snapX, 0)
-    vLine:Show()
-end
-
-local function HideSnapPreview()
-    if snapLineH then snapLineH:Hide() end
-    if snapLineV then snapLineV:Hide() end
-end
-
-function Bar:CreateDragOverlay(frame)
-    local overlay = CreateFrame("Frame", nil, frame, "NineSliceCodeTemplate")
-    overlay:SetAllPoints(frame)
-    overlay:SetFrameLevel(frame:GetFrameLevel() + 10)
-    overlay.isSelected = false
-    overlay.barFrame = frame
-
-    -- Start with highlight (cyan) style, no label
-    NineSliceUtil.ApplyLayout(overlay, EditModeNineSliceLayout, "editmode-actionbar-highlight")
-
-    -- Label: hidden by default, shown on hover/select
-    local label = overlay:CreateFontString(nil, "OVERLAY", "GameFontHighlightHuge")
-    label:SetPoint("CENTER")
-    label:SetText("")
-    label:Hide()
-    overlay.label = label
-
-    -- Mouse interaction
-    overlay:EnableMouse(true)
-    overlay:RegisterForDrag("LeftButton")
-
-    -- DRAG
-    overlay:SetScript("OnDragStart", function(self)
-        local parent = self:GetParent()
-        parent:SetMovable(true)
-        parent:StartMoving()
-        parent.isDragging = true
-
-        -- Start OnUpdate for live snap preview
-        self:SetScript("OnUpdate", function()
-            if parent.isDragging then
-                ShowSnapPreview(parent)
-            end
-        end)
-    end)
-
-    overlay:SetScript("OnDragStop", function(self)
-        local parent = self:GetParent()
-        parent:StopMovingOrSizing()
-        parent:SetMovable(false)
-        parent.isDragging = false
-
-        -- Stop live preview
-        self:SetScript("OnUpdate", nil)
-        HideSnapPreview()
-
-        -- Snap to grid if Edit Mode grid is shown
-        if EditModeManagerFrame and EditModeManagerFrame.Grid
-            and EditModeManagerFrame.Grid:IsShown()
-            and EditModeManagerFrame.Grid.gridSpacing then
-            local spacing = EditModeManagerFrame.Grid.gridSpacing
-            local cx, cy = parent:GetCenter()
-            local scale = parent:GetScale()
-            if cx and cy and spacing > 0 then
-                cx = cx * scale
-                cy = cy * scale
-                -- Snap relative to grid center (same as preview)
-                local gridCX, gridCY = EditModeManagerFrame.Grid:GetCenter()
-                local relX = cx - gridCX
-                local relY = cy - gridCY
-                local snapX = gridCX + math.floor(relX / spacing + 0.5) * spacing
-                local snapY = gridCY + math.floor(relY / spacing + 0.5) * spacing
-                parent:ClearAllPoints()
-                parent:SetPoint("CENTER", UIParent, "BOTTOMLEFT", snapX / scale, snapY / scale)
-            end
-        end
-
-        Bar:SavePosition(parent)
-    end)
-
-    -- HOVER
-    overlay:SetScript("OnEnter", function(self)
-        if not self.isSelected then
-            self.label:SetText("Click to Edit")
-            self.label:Show()
-        end
-        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-        GameTooltip:SetText(Bar:GetDisplayName(frame), 1, 1, 1)
-        GameTooltip:Show()
-    end)
-
-    overlay:SetScript("OnLeave", function(self)
-        if not self.isSelected then
-            self.label:Hide()
-        end
-        GameTooltip_Hide()
-    end)
-
-    -- CLICK: toggle selection
-    overlay:SetScript("OnMouseDown", function(self, button)
-        if button == "LeftButton" then
-            if self.isSelected then
-                Bar:Deselect(frame)
-            else
-                Bar:Select(frame)
-            end
-        end
-    end)
-
-    overlay:Hide()
-    frame.dragOverlay = overlay
-end
-
----------------------------------------------------------------------------
--- Selection State
----------------------------------------------------------------------------
-
-function Bar:Select(frame)
-    -- Deselect any previously selected BazBar
-    if selectedBar and selectedBar ~= frame then
-        Bar:Deselect(selectedBar)
-    end
-
-    -- Deselect any Blizzard Edit Mode selection
-    if EditModeManagerFrame and EditModeManagerFrame.ClearSelectedSystem then
-        EditModeManagerFrame:ClearSelectedSystem()
-    end
-
-    local overlay = frame.dragOverlay
-    overlay.isSelected = true
-    selectedBar = frame
-
-    -- Switch to selected (yellow) nine-slice
-    NineSliceUtil.ApplyLayout(overlay, EditModeNineSliceLayout, "editmode-actionbar-selected")
-
-    -- Show bar name
-    overlay.label:SetText(Bar:GetDisplayName(frame))
-    overlay.label:Show()
-
-    -- Show settings popup
-    if addon.EditSettings then
-        addon.EditSettings:AttachToBar(frame)
-    end
-end
-
-function Bar:Deselect(frame)
-    if not frame then return end
-
-    local overlay = frame.dragOverlay
-    overlay.isSelected = false
-
-    -- Revert to highlight (cyan) nine-slice
-    NineSliceUtil.ApplyLayout(overlay, EditModeNineSliceLayout, "editmode-actionbar-highlight")
-
-    -- Hide label
-    overlay.label:Hide()
-
-    if selectedBar == frame then
-        selectedBar = nil
-    end
-
-    -- Hide settings popup
-    if addon.EditSettings then
-        addon.EditSettings:Hide()
-    end
-end
-
-function Bar:DeselectAll()
-    if selectedBar then
-        Bar:Deselect(selectedBar)
-    end
-end
-
-function Bar:GetSelected()
-    return selectedBar
-end
-
----------------------------------------------------------------------------
--- Edit Mode Toggle
----------------------------------------------------------------------------
-
-function Bar:SetEditMode(frame, editing)
-    if editing then
-        frame.dragOverlay:Show()
-    else
-        frame.dragOverlay:Hide()
-    end
+        onPositionChanged = function(f) Bar:SavePosition(f) end,
+    })
 end
 
 ---------------------------------------------------------------------------
@@ -537,19 +404,13 @@ function Bar:RestorePosition(frame, barData)
 end
 
 ---------------------------------------------------------------------------
--- Edit Mode Integration
+-- Edit Mode (delegated to BazCore)
 ---------------------------------------------------------------------------
 
-function Bar:EnterEditMode()
-    for id, frame in pairs(bars) do
-        Bar:SetEditMode(frame, true)
-    end
-end
-
-function Bar:ExitEditMode()
-    Bar:DeselectAll()
-    for id, frame in pairs(bars) do
-        Bar:SetEditMode(frame, false)
+function Bar:DeselectAll()
+    local sel = BazCore:GetSelectedEditFrame()
+    if sel then
+        BazCore:DeselectEditFrame(sel)
     end
 end
 
@@ -691,10 +552,7 @@ function Bar:SetCustomName(frame, name)
     if db then
         db.customName = name
     end
-    -- Update overlay label if selected
-    if frame.dragOverlay and frame.dragOverlay.isSelected then
-        frame.dragOverlay.label:SetText(Bar:GetDisplayName(frame))
-    end
+    BazCore:UpdateEditModeLabel(frame, Bar:GetDisplayName(frame))
 end
 
 ---------------------------------------------------------------------------
@@ -704,6 +562,9 @@ end
 function Bar:Destroy(id)
     local frame = bars[id]
     if not frame then return false end
+
+    -- Unregister from Edit Mode
+    BazCore:UnregisterEditModeFrame(frame)
 
     -- Hide and clear all buttons
     for r, row in pairs(frame.buttons) do
@@ -762,22 +623,6 @@ function Bar:UpdateSlotArt(frame)
     end
 end
 
----------------------------------------------------------------------------
--- Nudge (pixel-precise positioning)
----------------------------------------------------------------------------
-
-function Bar:Nudge(frame, dx, dy)
-    local scale = frame:GetScale()
-    local cx, cy = frame:GetCenter()
-    if not (cx and cy) then return end
-
-    cx = cx * scale + dx
-    cy = cy * scale + dy
-
-    frame:ClearAllPoints()
-    frame:SetPoint("CENTER", UIParent, "BOTTOMLEFT", cx / scale, cy / scale)
-    Bar:SavePosition(frame)
-end
 
 ---------------------------------------------------------------------------
 -- Visibility State Driver
@@ -823,8 +668,6 @@ function Bar:LoadAll()
                     addon.Button:LoadButton(btn)
                 end
             end
-            -- Default to locked (Edit Mode controls unlocking)
-            Bar:SetEditMode(frame, false)
             -- Apply settings
             Bar:ApplyVisibility(frame)
             Bar:UpdateSlotArt(frame)

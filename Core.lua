@@ -1,6 +1,6 @@
 -- BazBars Core Module
--- Addon lifecycle, event handling, Edit Mode hooks, slash commands
--- Now powered by BazCore framework
+-- Addon lifecycle, slash commands, Edit Mode integration
+-- Powered by BazCore framework
 
 ---------------------------------------------------------------------------
 -- Addon Registration via BazCore
@@ -39,7 +39,7 @@ local addon = BazCore:RegisterAddon("BazBars", {
                 if id then
                     local str = addon:ExportBar(id)
                     if str then
-                        addon.EditSettings:ShowExportString(str)
+                        addon.Dialogs:ShowExportString(str)
                     else
                         addon:Print("Bar " .. id .. " not found.")
                     end
@@ -55,7 +55,7 @@ local addon = BazCore:RegisterAddon("BazBars", {
                 if importStr and importStr ~= "" then
                     addon:ImportBar(importStr)
                 else
-                    addon.EditSettings:ShowImportDialog()
+                    addon.Dialogs:ShowImportDialog()
                 end
             end,
         },
@@ -284,18 +284,7 @@ end
 function addon:SetupEditMode()
     if not EditModeManagerFrame then return end
 
-    EventRegistry:RegisterCallback("EditMode.Enter", function()
-        addon.Bar:EnterEditMode()
-    end)
-
-    EventRegistry:RegisterCallback("EditMode.Exit", function()
-        addon.Bar:ExitEditMode()
-    end)
-
-    hooksecurefunc(EditModeManagerFrame, "SelectSystem", function()
-        addon.Bar:DeselectAll()
-    end)
-
+    -- "Create New BazBar" button in Edit Mode panel
     local createBtn = CreateFrame("Button", nil, EditModeManagerFrame, "UIPanelButtonTemplate")
     createBtn:SetSize(330, 28)
     createBtn:SetText("Create New BazBar")
@@ -342,22 +331,11 @@ end
 local rangeTimer = 0
 local RANGE_INTERVAL = 0.2
 
-local rangeFrame = CreateFrame("Frame")
-rangeFrame:SetScript("OnUpdate", function(self, elapsed)
+CreateFrame("Frame"):SetScript("OnUpdate", function(self, elapsed)
     rangeTimer = rangeTimer + elapsed
     if rangeTimer >= RANGE_INTERVAL then
         rangeTimer = 0
-        if addon.Bar then
-            for id, frame in pairs(addon.Bar:GetAll()) do
-                for r, row in pairs(frame.buttons) do
-                    for c, btn in pairs(row) do
-                        if btn.bbCommand then
-                            addon.Button:UpdateRange(btn)
-                        end
-                    end
-                end
-            end
-        end
+        addon:OnRangeEvent()
     end
 end)
 
