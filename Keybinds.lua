@@ -1,7 +1,7 @@
 -- BazBars Quick Keybind Mode
 -- Hover a button, press a key to bind it
 
-local addon = LibStub("AceAddon-3.0"):GetAddon("BazBars")
+local addon = BazCore:GetAddon("BazBars")
 local Keybinds = {}
 addon.Keybinds = Keybinds
 

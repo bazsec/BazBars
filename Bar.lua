@@ -1,9 +1,9 @@
 -- BazBars Bar Module
 -- Handles bar creation, layout, Edit Mode dragging, and visual presentation
 
-local addon = LibStub("AceAddon-3.0"):GetAddon("BazBars")
+local addon = BazCore:GetAddon("BazBars")
 local Bar = {}
-local Masque = LibStub("Masque", true) -- optional dependency
+local Masque = LibStub and LibStub("Masque", true) -- optional dependency
 addon.Bar = Bar
 
 -- Localized globals

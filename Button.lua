@@ -1,10 +1,9 @@
 -- BazBars Button Module
 -- Handles button creation, drag-and-drop, textures, cooldowns, tooltips, usability, and range
 
-local addon = LibStub("AceAddon-3.0"):GetAddon("BazBars")
+local addon = BazCore:GetAddon("BazBars")
 local Button = {}
 addon.Button = Button
-local LBG = LibStub("LibButtonGlow-1.0", true)
 
 -- Localized globals for performance
 local pairs = pairs
@@ -338,23 +337,21 @@ end
 ---------------------------------------------------------------------------
 
 function Button:UpdateGlow(btn)
-    if not LBG then return end
     if btn.bbCommand == "spell" and btn.bbID then
         if C_Spell.IsSpellOverlayed and C_Spell.IsSpellOverlayed(btn.bbID) then
-            LBG.ShowOverlayGlow(btn)
+            BazCore:ShowGlow(btn)
         else
-            LBG.HideOverlayGlow(btn)
+            BazCore:HideGlow(btn)
         end
     elseif btn.bbCommand == "macro" and btn.bbSubValue then
-        -- For macros, check if the underlying spell has a proc
         local spellID = btn.bbID
         if spellID and C_Spell.IsSpellOverlayed and C_Spell.IsSpellOverlayed(spellID) then
-            LBG.ShowOverlayGlow(btn)
+            BazCore:ShowGlow(btn)
         else
-            LBG.HideOverlayGlow(btn)
+            BazCore:HideGlow(btn)
         end
     else
-        LBG.HideOverlayGlow(btn)
+        BazCore:HideGlow(btn)
     end
 end
 
@@ -440,7 +437,7 @@ function Button:ReceiveDrag(btn)
         cursorID = spellID
     end
 
-    if not addon.ACCEPTED_TYPES[cursorCommand] then
+    if not BazBars.ACCEPTED_TYPES[cursorCommand] then
         ClearCursor()
         return
     end

@@ -1,7 +1,7 @@
 -- BazBars Edit Mode Settings Popup
 -- Matches Blizzard's EditModeSystemSettingsDialog visual style
 
-local addon = LibStub("AceAddon-3.0"):GetAddon("BazBars")
+local addon = BazCore:GetAddon("BazBars")
 local EditSettings = {}
 addon.EditSettings = EditSettings
 

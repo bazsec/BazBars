@@ -1,25 +1,23 @@
 ## Interface: 120001
 ## Title: BazBars
 ## Author: Baz4k
-## Version: 010
+## Version: 011
 ## Notes: Custom extra action bars - independent of standard action bars
 ## X-License: GPL v2
 ## X-Website: https://www.curseforge.com/wow/addons/bazbars
 ## X-Category: Action Bars
-## X-Credits: Built with Ace3, LibButtonGlow, LibDBIcon, LibDataBroker
 ## X-Curse-Project-ID: 1501110
+## Dependencies: BazCore
 ## OptionalDeps: Masque
 ## Category: Action Bars
 ## IconTexture: 5213776
 ## SavedVariables: BazBarsDB
 
-libs\embeds.xml
-
 Constants.lua
+Core.lua
 BazBars.xml
 Button.lua
 Bar.lua
 EditSettings.lua
 Keybinds.lua
 Options.lua
-Core.lua

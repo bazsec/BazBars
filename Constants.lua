@@ -2,11 +2,8 @@
 
 BazBars = BazBars or {}
 
--- Create the AceAddon early so all modules can GetAddon() it
-local addon = LibStub("AceAddon-3.0"):NewAddon("BazBars", "AceConsole-3.0", "AceEvent-3.0")
-
 BazBars.ADDON_NAME = "BazBars"
-BazBars.VERSION = "010"
+BazBars.VERSION = "011"
 
 -- Button defaults
 BazBars.DEFAULT_BUTTON_SIZE = 45
@@ -51,13 +48,10 @@ function BazBars.DefaultBarData(id)
         alpha = 1.0,
         locked = false,
         buttons = {},
-        pos = nil, -- will store { point, relPoint, x, y }
+        pos = nil,
         customName = nil,
         mouseoverFade = false,
         mouseoverAlpha = 0.3,
         rightClickSelfCast = false,
     }
 end
-
--- Attach to addon object now that the table exists
-addon.ACCEPTED_TYPES = BazBars.ACCEPTED_TYPES
