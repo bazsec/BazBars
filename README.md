@@ -12,8 +12,11 @@
 <p align="center">
   <img src="https://img.shields.io/badge/WoW-12.0%20Midnight-blue" alt="WoW Version"/>
   <img src="https://img.shields.io/badge/License-GPL%20v2-green" alt="License"/>
-  <img src="https://img.shields.io/badge/Version-010-orange" alt="Version"/>
+  <img src="https://img.shields.io/badge/Version-011-orange" alt="Version"/>
 </p>
+
+> **Requires [BazCore](https://www.curseforge.com/wow/addons/bazcore)**
+> BazBars depends on the BazCore framework addon. If you use the CurseForge app, it will be installed automatically. Manual users must install BazCore separately.
 
 ---
 
@@ -137,16 +140,16 @@ Control when bars appear using WoW macro conditionals:
 [pet] show; hide             -- When you have a pet
 ```
 
-### Profiles (AceDB)
+### Profiles
 - Switch between named profiles (PvE, PvP, Raid, etc.)
 - Copy bar configurations between characters
-- Reset profiles to defaults
+- Create, rename, and delete profiles
 - Each profile stores its own complete bar setup and keybinds
 
 ### Minimap Button
 - **Left-click**: Open settings panel
 - **Right-click**: Create a new bar instantly
-- Toggle visibility in BazBars Settings
+- Toggle visibility in settings
 
 ---
 
@@ -170,12 +173,13 @@ Control when bars appear using WoW macro conditionals:
 ## Installation
 
 ### CurseForge / WoW Addon Manager
-Search for **BazBars** in your addon manager of choice.
+Search for **BazBars** in your addon manager of choice. BazCore will be installed automatically as a dependency.
 
 ### Manual Installation
-1. Download the latest release
-2. Extract to `World of Warcraft/_retail_/Interface/AddOns/BazBars/`
-3. Restart WoW or `/reload`
+1. Install [BazCore](https://www.curseforge.com/wow/addons/bazcore) first
+2. Download the latest BazBars release
+3. Extract to `World of Warcraft/_retail_/Interface/AddOns/BazBars/`
+4. Restart WoW or `/reload`
 
 ---
 
@@ -193,20 +197,11 @@ Search for **BazBars** in your addon manager of choice.
 
 ## Dependencies
 
-**Required:** None — all libraries are embedded.
+**Required:**
+- [BazCore](https://www.curseforge.com/wow/addons/bazcore) — shared framework for Baz Suite addons
 
 **Optional:**
 - [Masque](https://www.curseforge.com/wow/addons/masque) — for button skinning
-
-### Embedded Libraries
-| Library | License |
-|---------|---------|
-| Ace3 (AceAddon, AceDB, AceDBOptions, AceConfig, AceConsole, AceEvent, AceGUI) | BSD |
-| CallbackHandler-1.0 | BSD |
-| LibStub | Public Domain |
-| LibButtonGlow-1.0 | BSD |
-| LibDataBroker-1.1 | BSD |
-| LibDBIcon-1.0 | BSD |
 
 ---
 
