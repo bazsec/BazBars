@@ -17,15 +17,6 @@ local function GetOptionsTable()
         subtitle = "Custom extra action bars",
         type = "group",
         args = {
-            createBar = {
-                order = 2,
-                type = "execute",
-                name = "Create New Bar",
-                desc = "Create a new action bar with default settings",
-                func = function()
-                    addon:CreateNewBar()
-                end,
-            },
             bars = {
                 order = 10,
                 type = "group",
@@ -261,11 +252,148 @@ end
 -- Register with BazCore OptionsPanel
 ---------------------------------------------------------------------------
 
+local function GetGlobalOptionsTable()
+    return {
+        name = "Global Options",
+        subtitle = "Settings that apply to all bars",
+        type = "group",
+        args = {
+            displayHeader = {
+                order = 1,
+                type = "header",
+                name = "Display",
+            },
+            fullRangeColor = {
+                order = 2,
+                type = "toggle",
+                name = "Full Button Range Color",
+                desc = "Tint the entire button red when out of range (not just the icon)",
+                get = function() return addon.db.profile.fullRangeColor ~= false end,
+                set = function(_, val) addon.db.profile.fullRangeColor = val end,
+            },
+            showTooltips = {
+                order = 3,
+                type = "toggle",
+                name = "Show Tooltips",
+                desc = "Show spell/item tooltips when hovering buttons",
+                get = function() return addon.db.profile.showTooltips ~= false end,
+                set = function(_, val) addon.db.profile.showTooltips = val end,
+            },
+            showKeybindText = {
+                order = 4,
+                type = "toggle",
+                name = "Show Keybind Text",
+                desc = "Display hotkey text on buttons",
+                get = function() return addon.db.profile.showKeybindText ~= false end,
+                set = function(_, val)
+                    addon.db.profile.showKeybindText = val
+                    for _, frame in pairs(addon.Bar:GetAll()) do
+                        for r, row in pairs(frame.buttons) do
+                            for c, btn in pairs(row) do
+                                if btn.HotKey then
+                                    btn.HotKey:SetShown(val and btn.HotKey:GetText() ~= "")
+                                end
+                            end
+                        end
+                    end
+                end,
+            },
+            showMacroNames = {
+                order = 5,
+                type = "toggle",
+                name = "Show Macro Names",
+                desc = "Display macro name text on buttons",
+                get = function() return addon.db.profile.showMacroNames ~= false end,
+                set = function(_, val)
+                    addon.db.profile.showMacroNames = val
+                    for _, frame in pairs(addon.Bar:GetAll()) do
+                        for r, row in pairs(frame.buttons) do
+                            for c, btn in pairs(row) do
+                                if btn.Name then
+                                    btn.Name:SetShown(val and btn.bbCommand == "macro")
+                                end
+                            end
+                        end
+                    end
+                end,
+            },
+        },
+    }
+end
+
 function Options:Setup()
-    BazCore:RegisterOptionsTable("BazBars", GetOptionsTable)
+    -- Parent category — addon info and quick guide
+    BazCore:RegisterOptionsTable("BazBars", function()
+        local version = C_AddOns.GetAddOnMetadata("BazBars", "Version") or "?"
+        return {
+            name = "BazBars",
+            subtitle = "Custom extra action bars  —  v" .. version,
+            type = "group",
+            args = {
+                about = {
+                    order = 1,
+                    type = "description",
+                    name = "BazBars lets you create unlimited custom action bars, completely independent of Blizzard's action bar system. Drag spells, items, macros, toys, mounts, and battle pets onto your bars.",
+                },
+                guideHeader = {
+                    order = 10,
+                    type = "header",
+                    name = "Quick Guide",
+                },
+                guide1 = {
+                    order = 11,
+                    type = "description",
+                    name = "|cffffd700Creating Bars|r\nOpen Edit Mode (ESC > Edit Mode) and click \"Create New BazBar\", or use |cff00ff00/bb create|r",
+                },
+                guide2 = {
+                    order = 12,
+                    type = "description",
+                    name = "|cffffd700Adding Actions|r\nDrag spells, items, macros, toys, or mounts from their respective panels onto any BazBar button.",
+                },
+                guide3 = {
+                    order = 13,
+                    type = "description",
+                    name = "|cffffd700Removing Actions|r\nShift+Drag to remove a spell/item. Shift+Right-Click to clear mounts and battle pets.",
+                },
+                guide4 = {
+                    order = 14,
+                    type = "description",
+                    name = "|cffffd700Configuring Bars|r\nEnter Edit Mode, click a bar to select it, and use the settings popup. Or open |cff00ff00/bb|r for the full options panel.",
+                },
+                guide5 = {
+                    order = 15,
+                    type = "description",
+                    name = "|cffffd700Keybinds|r\nIn Edit Mode, select a bar and click \"Quick Keybind Mode\". Hover a button and press a key to bind it. Press ESC to unbind.",
+                },
+                guide6 = {
+                    order = 16,
+                    type = "description",
+                    name = "|cffffd700Import / Export|r\nIn Edit Mode, select a bar and use \"Export Bar Config\" to share. Use |cff00ff00/bb import|r to import a shared string.",
+                },
+                commandsHeader = {
+                    order = 20,
+                    type = "header",
+                    name = "Slash Commands",
+                },
+                commands = {
+                    order = 21,
+                    type = "description",
+                    name = "|cff00ff00/bb|r — Open settings\n|cff00ff00/bb create [cols] [rows]|r — Create a new bar\n|cff00ff00/bb delete <id>|r — Delete a bar\n|cff00ff00/bb duplicate <id>|r — Duplicate a bar\n|cff00ff00/bb export <id>|r — Export bar config\n|cff00ff00/bb import|r — Import bar config\n|cff00ff00/bb reset|r — Reset all bars",
+                },
+            },
+        }
+    end)
     BazCore:AddToSettings("BazBars", "BazBars")
 
-    -- Profile management (registered as function so it rebuilds dynamically)
+    -- Global Options subcategory
+    BazCore:RegisterOptionsTable("BazBars-Global", GetGlobalOptionsTable)
+    BazCore:AddToSettings("BazBars-Global", "Global Options", "BazBars")
+
+    -- Bar Options subcategory
+    BazCore:RegisterOptionsTable("BazBars-Bars", GetOptionsTable)
+    BazCore:AddToSettings("BazBars-Bars", "Bar Options", "BazBars")
+
+    -- Profiles subcategory
     BazCore:RegisterOptionsTable("BazBars-Profiles", function()
         return BazCore:GetProfileOptionsTable("BazBars")
     end)
@@ -273,8 +401,8 @@ function Options:Setup()
 end
 
 function Options:Refresh()
-    BazCore:RegisterOptionsTable("BazBars", GetOptionsTable)
-    BazCore:RefreshOptions("BazBars")
+    BazCore:RegisterOptionsTable("BazBars-Bars", GetOptionsTable)
+    BazCore:RefreshOptions("BazBars-Bars")
 end
 
 function Options:Open()

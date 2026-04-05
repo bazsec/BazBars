@@ -14,6 +14,10 @@ local addon = BazCore:RegisterAddon("BazBars", {
         bars = {},
         keybinds = {},
         minimap = { hide = false },
+        fullRangeColor = true,
+        showTooltips = true,
+        showKeybindText = true,
+        showMacroNames = true,
     },
 
     -- Slash commands

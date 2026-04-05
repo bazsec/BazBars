@@ -227,27 +227,47 @@ function Button:UpdateRange(btn)
     if not btn.bbCommand then return end
 
     local cmd = btn.bbCommand
-    local value = btn.bbValue
     local inRange = nil
 
-    if cmd == "spell" then
-        inRange = C_Spell.IsSpellInRange(value, "target")
-    elseif cmd == "item" then
-        inRange = IsItemInRange(value, "target")
+    if not UnitExists("target") then
+        -- No target — clear range state and reset color
+        if btn._lastRange ~= nil then
+            btn._lastRange = nil
+            Button:UpdateUsable(btn)
+        end
+        return
     end
 
-    -- Only update if state changed to prevent flashing
+    if cmd == "spell" then
+        local spellID = btn.bbID
+        if spellID then
+            inRange = C_Spell.IsSpellInRange(spellID, "target")
+        end
+    elseif cmd == "item" then
+        inRange = IsItemInRange(btn.bbValue, "target")
+    end
+
+    -- Only update visuals if state changed
     if inRange == btn._lastRange then return end
     btn._lastRange = inRange
+
+    local full = addon.db.profile.fullRangeColor ~= false
 
     if inRange == false then
         btn.icon:SetVertexColor(1.0, 0.3, 0.3)
         if btn.HotKey then btn.HotKey:SetVertexColor(1.0, 0.1, 0.1) end
+        if full then
+            if btn.NormalTexture then btn.NormalTexture:SetVertexColor(1.0, 0.3, 0.3) end
+            if btn.Name then btn.Name:SetVertexColor(1.0, 0.3, 0.3) end
+        end
     elseif inRange == true then
         btn.icon:SetVertexColor(1.0, 1.0, 1.0)
         if btn.HotKey then btn.HotKey:SetVertexColor(0.6, 0.6, 0.6) end
+        if full then
+            if btn.NormalTexture then btn.NormalTexture:SetVertexColor(1.0, 1.0, 1.0) end
+            if btn.Name then btn.Name:SetVertexColor(1.0, 1.0, 1.0) end
+        end
     else
-        -- No range info (no target, no range requirement) — reset to usability color
         Button:UpdateUsable(btn)
     end
 end
@@ -287,6 +307,7 @@ end
 
 function Button:ShowTooltip(btn)
     if not btn.bbCommand then return end
+    if addon.db.profile.showTooltips == false then return end
 
     GameTooltip:SetOwner(btn, "ANCHOR_RIGHT")
 
@@ -390,6 +411,11 @@ end
 
 function Button:UpdateMacroName(btn)
     if not btn.Name then return end
+    if addon.db.profile.showMacroNames == false then
+        btn.Name:SetText("")
+        btn.Name:Hide()
+        return
+    end
     if btn.bbCommand == "macro" and btn.bbValue then
         local name = GetMacroInfo(btn.bbValue)
         if name then
