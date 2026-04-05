@@ -586,13 +586,14 @@ function Button:SetAction(btn, command, value, subValue, id, macrotext)
                 btn:SetAttribute("toy", tonumber(value))
             end
         else
-            local itemName = GetItemName(value) or value
+            local itemName = GetItemName(value)
+            local itemAttr = itemName or ("item:" .. value)
             btn:SetAttribute("type", "item")
-            btn:SetAttribute("item", itemName)
+            btn:SetAttribute("item", itemAttr)
             -- Right-click self-cast
             if btn.bbBarData and btn.bbBarData.rightClickSelfCast then
                 btn:SetAttribute("type2", "item")
-                btn:SetAttribute("item2", itemName)
+                btn:SetAttribute("item2", itemAttr)
                 btn:SetAttribute("unit2", "player")
             end
         end
