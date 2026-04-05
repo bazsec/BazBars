@@ -1,5 +1,8 @@
 # BazBars Changelog
 
+## 014
+- Version now reads from TOC dynamically
+
 ## 013 - Mount, Pet & Drag Fixes
 - Fixed mount shift-drag turning mounts into Random Mount
 - Fixed battlepet SetAction crash (API return value change in Midnight)
