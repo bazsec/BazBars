@@ -3,7 +3,7 @@
 BazBars = BazBars or {}
 
 BazBars.ADDON_NAME = "BazBars"
-BazBars.VERSION = "011"
+BazBars.VERSION = C_AddOns.GetAddOnMetadata("BazBars", "Version") or "?"
 
 -- Button defaults
 BazBars.DEFAULT_BUTTON_SIZE = 45
