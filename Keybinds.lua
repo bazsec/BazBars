@@ -92,14 +92,27 @@ end
 
 function Keybinds:RestoreAll()
     if not addon.db.profile.keybinds then return end
+    if InCombatLockdown() then
+        -- Defer until combat ends
+        local f = CreateFrame("Frame")
+        f:RegisterEvent("PLAYER_REGEN_ENABLED")
+        f:SetScript("OnEvent", function(self)
+            self:UnregisterEvent("PLAYER_REGEN_ENABLED")
+            Keybinds:RestoreAll()
+        end)
+        return
+    end
 
     if not keybindOwner then
         keybindOwner = CreateFrame("Frame", "BazBarsKeybindOwner", UIParent, "SecureHandlerBaseTemplate")
     end
 
+    -- Clear all existing overrides first to avoid stale bindings
+    ClearOverrideBindings(keybindOwner)
+
     for buttonName, key in pairs(addon.db.profile.keybinds) do
         if key and _G[buttonName] then
-            SetOverrideBindingClick(keybindOwner, false, key, buttonName, "LeftButton")
+            SetOverrideBindingClick(keybindOwner, true, key, buttonName, "LeftButton")
             local btn = _G[buttonName]
             if btn and btn.HotKey then
                 btn.HotKey:SetText(FormatKeyText(key))

@@ -236,7 +236,10 @@ function Button:UpdateRange(btn)
         inRange = IsItemInRange(value, "target")
     end
 
-    -- Color both hotkey text and icon when out of range
+    -- Only update if state changed to prevent flashing
+    if inRange == btn._lastRange then return end
+    btn._lastRange = inRange
+
     if inRange == false then
         btn.icon:SetVertexColor(1.0, 0.3, 0.3)
         if btn.HotKey then btn.HotKey:SetVertexColor(1.0, 0.1, 0.1) end
