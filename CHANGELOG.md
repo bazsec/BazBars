@@ -1,5 +1,27 @@
 # BazBars Changelog
 
+## 018 - Range Indicator & Keybind Fixes
+- Unified range/usability coloring (out of range always takes priority)
+- Full button range color option: tint entire button red or just hotkey text
+- Keybinds now always override default WoW bindings
+- Fixed secret string taint in spell names
+- Fixed NormalTexture reset causing inconsistent range tinting
+
+## 017 - Global Options Panel
+- Added Global Options subcategory with Display settings
+- Full Button Range Color, Show Tooltips, Show Keybind Text, Show Macro Names
+- Parent settings page shows addon description, quick guide, and slash commands
+
+## 016 - Range Indicator Improvements
+- Full button range coloring (icon, frame, hotkey, macro name)
+- Range state tracking prevents flashing at boundaries
+- Target existence check prevents stuck red state
+
+## 015 - Secret String & Item Fixes
+- Fixed Midnight secret string taint in loot/currency chat messages
+- Fixed uncached item crash using item:ID format
+- Spell range check uses spellID instead of spell name
+
 ## 014
 - Version now reads from TOC dynamically
 
