@@ -46,7 +46,7 @@ function Keybinds:SetBinding(buttonName, key)
     -- Clear any existing binding for this button
     local oldKey = addon.db.profile.keybinds and addon.db.profile.keybinds[buttonName]
     if oldKey then
-        SetOverrideBindingClick(keybindOwner, false, oldKey, nil)
+        SetOverrideBindingClick(keybindOwner, true, oldKey, nil)
     end
 
     -- Clear any existing action on this key
@@ -67,7 +67,7 @@ function Keybinds:SetBinding(buttonName, key)
     -- Set new binding
     addon.db.profile.keybinds = addon.db.profile.keybinds or {}
     if key then
-        SetOverrideBindingClick(keybindOwner, false, key, buttonName, "LeftButton")
+        SetOverrideBindingClick(keybindOwner, true, key, buttonName, "LeftButton")
         addon.db.profile.keybinds[buttonName] = key
     else
         addon.db.profile.keybinds[buttonName] = nil

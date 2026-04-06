@@ -267,7 +267,7 @@ local function GetGlobalOptionsTable()
                 order = 2,
                 type = "toggle",
                 name = "Full Button Range Color",
-                desc = "Tint the entire button red when out of range (not just the icon)",
+                desc = "Tint the entire button red when out of range (icon, frame, hotkey). When off, only the hotkey text turns red.",
                 get = function() return addon.db.profile.fullRangeColor ~= false end,
                 set = function(_, val) addon.db.profile.fullRangeColor = val end,
             },

@@ -50,7 +50,10 @@ end
 
 local function GetSpellName(spellID)
     local info = C_Spell.GetSpellInfo(spellID)
-    return info and info.name
+    if info and info.name then
+        local ok, clean = pcall(string.format, "%s", info.name)
+        return ok and clean or info.name
+    end
 end
 
 local function GetSpellIcon(nameOrID)
@@ -87,11 +90,9 @@ function Button:UpdateTexture(btn)
     if texture then
         icon:SetTexture(texture)
         icon:Show()
-        btn:SetNormalTexture("")
     else
         icon:SetTexture(QUESTION_MARK)
         icon:Show()
-        btn:SetNormalTexture("")
     end
 end
 
@@ -196,10 +197,22 @@ function Button:UpdateUsable(btn)
     if not btn.bbCommand then return end
 
     local cmd = btn.bbCommand
-    local value = btn.bbValue
 
+    -- Out of range takes priority (Bartender4 pattern)
+    if btn._outOfRange then
+        if addon.db.profile.fullRangeColor ~= false then
+            btn.icon:SetVertexColor(0.8, 0.1, 0.1)
+            if btn.NormalTexture then btn.NormalTexture:SetVertexColor(0.8, 0.1, 0.1) end
+            if btn.Name then btn.Name:SetVertexColor(0.8, 0.1, 0.1) end
+        end
+        if btn.HotKey then btn.HotKey:SetVertexColor(0.8, 0.1, 0.1) end
+        return
+    end
+
+    -- Normal usability coloring
     if cmd == "spell" then
-        local isUsable, insufficientPower = C_Spell.IsSpellUsable(value)
+        local spellID = btn.bbID or btn.bbValue
+        local isUsable, insufficientPower = C_Spell.IsSpellUsable(spellID)
         if isUsable then
             btn.icon:SetVertexColor(1.0, 1.0, 1.0)
         elseif insufficientPower then
@@ -208,8 +221,8 @@ function Button:UpdateUsable(btn)
             btn.icon:SetVertexColor(0.4, 0.4, 0.4)
         end
     elseif cmd == "item" then
-        local isUsable = IsUsableItem(value)
-        if isUsable or (PlayerHasToy and PlayerHasToy(value)) then
+        local isUsable = IsUsableItem(btn.bbValue)
+        if isUsable or (PlayerHasToy and PlayerHasToy(btn.bbValue)) then
             btn.icon:SetVertexColor(1.0, 1.0, 1.0)
         else
             btn.icon:SetVertexColor(0.4, 0.4, 0.4)
@@ -217,6 +230,11 @@ function Button:UpdateUsable(btn)
     else
         btn.icon:SetVertexColor(1.0, 1.0, 1.0)
     end
+
+    -- Reset frame/text to normal
+    if btn.NormalTexture then btn.NormalTexture:SetVertexColor(1.0, 1.0, 1.0) end
+    if btn.HotKey then btn.HotKey:SetVertexColor(0.6, 0.6, 0.6) end
+    if btn.Name then btn.Name:SetVertexColor(1.0, 1.0, 1.0) end
 end
 
 ---------------------------------------------------------------------------
@@ -227,49 +245,27 @@ function Button:UpdateRange(btn)
     if not btn.bbCommand then return end
 
     local cmd = btn.bbCommand
-    local inRange = nil
+    local outOfRange = false
 
-    if not UnitExists("target") then
-        -- No target — clear range state and reset color
-        if btn._lastRange ~= nil then
-            btn._lastRange = nil
-            Button:UpdateUsable(btn)
+    if UnitExists("target") then
+        if cmd == "spell" then
+            local spellID = btn.bbID
+            if spellID then
+                local inRange = C_Spell.IsSpellInRange(spellID, "target")
+                if inRange == false then outOfRange = true end
+            end
+        elseif cmd == "item" then
+            local inRange = IsItemInRange(btn.bbValue, "target")
+            if inRange == false then outOfRange = true end
         end
-        return
     end
 
-    if cmd == "spell" then
-        local spellID = btn.bbID
-        if spellID then
-            inRange = C_Spell.IsSpellInRange(spellID, "target")
-        end
-    elseif cmd == "item" then
-        inRange = IsItemInRange(btn.bbValue, "target")
-    end
+    -- Only update visuals if state actually changed
+    if outOfRange == btn._outOfRange then return end
+    btn._outOfRange = outOfRange
 
-    -- Only update visuals if state changed
-    if inRange == btn._lastRange then return end
-    btn._lastRange = inRange
-
-    local full = addon.db.profile.fullRangeColor ~= false
-
-    if inRange == false then
-        btn.icon:SetVertexColor(1.0, 0.3, 0.3)
-        if btn.HotKey then btn.HotKey:SetVertexColor(1.0, 0.1, 0.1) end
-        if full then
-            if btn.NormalTexture then btn.NormalTexture:SetVertexColor(1.0, 0.3, 0.3) end
-            if btn.Name then btn.Name:SetVertexColor(1.0, 0.3, 0.3) end
-        end
-    elseif inRange == true then
-        btn.icon:SetVertexColor(1.0, 1.0, 1.0)
-        if btn.HotKey then btn.HotKey:SetVertexColor(0.6, 0.6, 0.6) end
-        if full then
-            if btn.NormalTexture then btn.NormalTexture:SetVertexColor(1.0, 1.0, 1.0) end
-            if btn.Name then btn.Name:SetVertexColor(1.0, 1.0, 1.0) end
-        end
-    else
-        Button:UpdateUsable(btn)
-    end
+    -- Let UpdateUsable handle ALL coloring
+    Button:UpdateUsable(btn)
 end
 
 ---------------------------------------------------------------------------
