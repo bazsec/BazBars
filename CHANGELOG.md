@@ -1,5 +1,9 @@
 # BazBars Changelog
 
+## 019 - Audit Fixes
+- Range ticker frame now stored with reference (can be paused)
+- Category changed to "Baz Suite"
+
 ## 018 - Range Indicator & Keybind Fixes
 - Unified range/usability coloring (out of range always takes priority)
 - Full button range color option: tint entire button red or just hotkey text

@@ -331,17 +331,20 @@ function addon:UpdateAllButtons()
     end
 end
 
--- Range ticker: check range every 0.2s
+-- Range ticker: check range every 0.2s (pauseable)
 local rangeTimer = 0
 local RANGE_INTERVAL = 0.2
+local rangeFrame = CreateFrame("Frame")
 
-CreateFrame("Frame"):SetScript("OnUpdate", function(self, elapsed)
+rangeFrame:SetScript("OnUpdate", function(self, elapsed)
     rangeTimer = rangeTimer + elapsed
     if rangeTimer >= RANGE_INTERVAL then
         rangeTimer = 0
         addon:OnRangeEvent()
     end
 end)
+
+addon.rangeFrame = rangeFrame
 
 ---------------------------------------------------------------------------
 -- Import / Export
