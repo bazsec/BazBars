@@ -316,16 +316,23 @@ function Button:ShowTooltip(btn)
     elseif cmd == "item" then
         GameTooltip:SetItemByID(value)
     elseif cmd == "macro" then
-        -- Show resolved spell tooltip if #showtooltip is set
+        -- Show resolved spell/item tooltip if #showtooltip is set
         local macroName = GetMacroInfo(value) or value
         if btn.bbMacrotext then
             local showName = ParseShowtooltip(btn.bbMacrotext)
             if showName then
+                -- Try as spell first
                 local spellInfo = C_Spell.GetSpellInfo(showName)
-                if spellInfo then
+                if spellInfo and spellInfo.spellID then
                     GameTooltip:SetSpellByID(spellInfo.spellID)
                 else
-                    GameTooltip:SetText(showName)
+                    -- Try as item
+                    local itemID = C_Item.GetItemIDForItemInfo(showName)
+                    if itemID then
+                        GameTooltip:SetItemByID(itemID)
+                    else
+                        GameTooltip:SetText(showName)
+                    end
                 end
             else
                 GameTooltip:SetText(macroName)
@@ -450,6 +457,31 @@ function Button:ReceiveDrag(btn)
     end
 
     local cursorCommand, cursorValue, cursorSubValue, cursorID = GetCursorInfo()
+
+    -- Handle internal move (pendingMove) if nothing on WoW cursor
+    if not cursorCommand and Button.pendingMove then
+        local move = Button.pendingMove
+        Button.pendingMove = nil
+        Button:HideCursorIcon()
+        if Button._cursorWatcher then Button._cursorWatcher:Cancel(); Button._cursorWatcher = nil end
+
+        -- If target has something, chain swap
+        if btn.bbCommand then
+            Button.pendingMove = {
+                command = btn.bbCommand,
+                value = btn.bbValue,
+                subValue = btn.bbSubValue,
+                id = btn.bbID,
+                macrotext = btn.bbMacrotext,
+            }
+            local icon = Button:GetTexture(btn)
+            Button:ShowCursorIcon(icon)
+        end
+
+        Button:SetAction(btn, move.command, move.value, move.subValue, move.id, move.macrotext)
+        return
+    end
+
     if not cursorCommand then return end
 
     -- Normalize spell: GetCursorInfo returns (spell, slotIndex, "spell", spellID)
@@ -461,6 +493,16 @@ function Button:ReceiveDrag(btn)
         cursorID = spellID
     end
 
+    -- Normalize macro: store name (stable) instead of index (shifts on delete)
+    -- Also capture macrotext for #showtooltip support
+    local macrotext
+    if cursorCommand == "macro" then
+        local macroName, _, body = GetMacroInfo(cursorValue)
+        if macroName then
+            macrotext = body
+            cursorValue = macroName  -- store name, not index
+        end
+    end
 
     -- Normalize companion → mount (older API compat)
     if cursorCommand == "companion" then
@@ -474,13 +516,27 @@ function Button:ReceiveDrag(btn)
 
     ClearCursor()
 
-    -- If button already has something, pick it up
+    -- Cancel any cursor watcher from StartDrag (prevents it from wiping the swap)
+    if Button._cursorWatcher then
+        Button._cursorWatcher:Cancel()
+        Button._cursorWatcher = nil
+    end
+
+    -- If button already has something, use internal move system to swap
     if btn.bbCommand then
-        Button:PickUp(btn)
+        Button.pendingMove = {
+            command = btn.bbCommand,
+            value = btn.bbValue,
+            subValue = btn.bbSubValue,
+            id = btn.bbID,
+            macrotext = btn.bbMacrotext,
+        }
+        local icon = Button:GetTexture(btn)
+        Button:ShowCursorIcon(icon)
     end
 
     -- Set the new action
-    Button:SetAction(btn, cursorCommand, cursorValue, cursorSubValue, cursorID)
+    Button:SetAction(btn, cursorCommand, cursorValue, cursorSubValue, cursorID, macrotext)
 end
 
 ---------------------------------------------------------------------------
@@ -494,22 +550,32 @@ function Button:StartDrag(btn)
     if not IsShiftKeyDown() then return end
 
     if btn.bbCommand then
-        if btn.bbCommand == "mount" or btn.bbCommand == "battlepet" then
-            -- Can't use WoW cursor for these — use internal move
-            local iconTex = btn.icon and btn.icon:GetTexture()
-            Button.pendingMove = {
-                command = btn.bbCommand,
-                value = btn.bbValue,
-                subValue = btn.bbSubValue,
-                id = btn.bbID,
-                macrotext = btn.bbMacrotext,
-            }
-            Button:ClearAction(btn)
-            Button:ShowCursorIcon(iconTex)
-        else
-            Button:PickUp(btn)
-            Button:ClearAction(btn)
-        end
+        -- Store as internal pending move (for BazBar-to-BazBar)
+        Button.pendingMove = {
+            command = btn.bbCommand,
+            value = btn.bbValue,
+            subValue = btn.bbSubValue,
+            id = btn.bbID,
+            macrotext = btn.bbMacrotext,
+        }
+        -- Don't show internal cursor icon yet — WoW cursor handles the visual
+        -- Internal icon only shows on swap (when WoW cursor can't represent the displaced item)
+
+        -- Put on WoW cursor (for dragging to default action bars)
+        Button:PickUp(btn)
+        Button:ClearAction(btn)
+
+        -- Watch for WoW cursor clear — clean up internal state
+        Button._cursorWatcher = C_Timer.NewTicker(0.1, function(ticker)
+            if not GetCursorInfo() then
+                ticker:Cancel()
+                Button._cursorWatcher = nil
+                if Button.pendingMove then
+                    Button.pendingMove = nil
+                    Button:HideCursorIcon()
+                end
+            end
+        end, 50)
     end
 end
 
@@ -528,7 +594,22 @@ function Button:PickUp(btn)
             C_Item.PickupItem(value)
         end
     elseif cmd == "macro" then
-        PickupMacro(value)
+        -- Resolve name to index for PickupMacro (requires index)
+        local macroIndex
+        if type(value) == "string" then
+            for i = 1, MAX_ACCOUNT_MACROS + MAX_CHARACTER_MACROS do
+                local name = GetMacroInfo(i)
+                if name == value then
+                    macroIndex = i
+                    break
+                end
+            end
+        else
+            macroIndex = value
+        end
+        if macroIndex then
+            PickupMacro(macroIndex)
+        end
     elseif cmd == "mount" then
         -- Can't reliably pick up mounts onto cursor — just clear the button
         -- User can re-drag from mount journal
@@ -748,6 +829,16 @@ function Button:LoadButton(btn)
     local data = db.buttons[key]
 
     if data then
+        -- Migrate old macro data stored by index (number) to name (string)
+        if data.command == "macro" and type(data.value) == "number" then
+            local macroName, _, body = GetMacroInfo(data.value)
+            if macroName then
+                data.value = macroName
+                if not data.macrotext then
+                    data.macrotext = body
+                end
+            end
+        end
         Button:SetAction(btn, data.command, data.value, data.subValue, data.id, data.macrotext)
     end
 end
@@ -793,6 +884,8 @@ function BazBarsButton_OnEnter(self)
 end
 
 function BazBarsButton_OnReceiveDrag(self)
+    Button._receivedDragThisFrame = true
+    C_Timer.After(0, function() Button._receivedDragThisFrame = nil end)
     Button:ReceiveDrag(self)
 end
 
@@ -802,13 +895,29 @@ end
 
 function BazBarsButton_PostClick(self, button)
     -- Handle pending internal move (mounts/battlepets)
-    if Button.pendingMove and button == "LeftButton" and not InCombatLockdown() then
+    if Button.pendingMove and button == "LeftButton" and not InCombatLockdown() and not Button._receivedDragThisFrame then
         local move = Button.pendingMove
         Button.pendingMove = nil
         Button:HideCursorIcon()
+        if Button._cursorWatcher then Button._cursorWatcher:Cancel(); Button._cursorWatcher = nil end
+
+        -- If target slot has something, pick it up as a new pending move (swap)
+        if self.bbCommand then
+            Button.pendingMove = {
+                command = self.bbCommand,
+                value = self.bbValue,
+                subValue = self.bbSubValue,
+                id = self.bbID,
+                macrotext = self.bbMacrotext,
+            }
+            local icon = Button:GetTexture(self)
+            Button:ShowCursorIcon(icon)
+        end
+
         Button:SetAction(self, move.command, move.value, move.subValue, move.id, move.macrotext)
         return
     end
+
 
     -- Shift+Right-click: clear the button
     if button == "RightButton" and IsShiftKeyDown() and not InCombatLockdown() then

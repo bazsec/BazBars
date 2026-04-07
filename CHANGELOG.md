@@ -1,5 +1,14 @@
 # BazBars Changelog
 
+## 020 - Macro Fixes + Button Move System
+- Fixed #showtooltip in macros now displays proper spell/item tooltips
+- Fixed macros shifting when other macros deleted (stored by name instead of index)
+- Auto-migration for existing users with index-based macro saves
+- Unified internal move system for all button types (spells, items, macros, mounts, pets)
+- Button swaps: drop A on B, B goes to cursor, click to place
+- Drag from BazBar to default action bars works
+- Removed dead PickUp-based drag code
+
 ## 019 - Audit Fixes
 - Range ticker frame now stored with reference (can be paused)
 - Category changed to "Baz Suite"
