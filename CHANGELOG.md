@@ -1,5 +1,9 @@
 # BazBars Changelog
 
+## 023 - Unified Profiles
+- Profiles now managed centrally in BazCore settings
+- Removed per-addon Profiles subcategory
+
 ## 022 - Global Options + Settings Page
 - Added Global Options page with per-bar overrides for scale, opacity, spacing, slot art, always show buttons, and mouseover fade
 - When a global override is enabled, per-bar settings are grayed out

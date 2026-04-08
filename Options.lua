@@ -392,12 +392,6 @@ function Options:Setup()
     BazCore:RegisterOptionsTable("BazBars-Settings", GetSettingsOptionsTable)
     BazCore:AddToSettings("BazBars-Settings", "Settings", "BazBars")
 
-    -- Profiles subcategory
-    BazCore:RegisterOptionsTable("BazBars-Profiles", function()
-        return BazCore:GetProfileOptionsTable("BazBars")
-    end)
-    BazCore:AddToSettings("BazBars-Profiles", "Profiles", "BazBars")
-
     -- Global Options subcategory
     BazCore:RegisterOptionsTable("BazBars-Global", GetGlobalOptionsTable)
     BazCore:AddToSettings("BazBars-Global", "Global Options", "BazBars")
