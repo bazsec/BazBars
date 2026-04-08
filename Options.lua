@@ -120,7 +120,7 @@ BuildBarOptions = function(id, barData)
                 name = "Icon Size",
                 min = BazBars.MIN_SCALE, max = BazBars.MAX_SCALE, step = 0.05,
                 isPercent = true,
-                get = function() return barData.scale end,
+                get = function() return BazBars.GetBarSetting(barData, "scale") end,
                 set = function(_, val)
                     barData.scale = val
                     local frame = addon.Bar:Get(id)
@@ -128,13 +128,14 @@ BuildBarOptions = function(id, barData)
                         addon.Bar:SetScale(frame, val)
                     end
                 end,
+                disabled = function() return BazBars.IsGlobalOverrideActive("scale") end,
             },
             spacing = {
                 order = 14,
                 type = "range",
                 name = "Icon Padding",
                 min = 0, max = 20, step = 1,
-                get = function() return barData.spacing end,
+                get = function() return BazBars.GetBarSetting(barData, "spacing") end,
                 set = function(_, val)
                     barData.spacing = val
                     local frame = addon.Bar:Get(id)
@@ -142,6 +143,7 @@ BuildBarOptions = function(id, barData)
                         addon.Bar:Resize(frame, barData.rows, barData.cols, val)
                     end
                 end,
+                disabled = function() return BazBars.IsGlobalOverrideActive("spacing") end,
             },
             barAlpha = {
                 order = 16,
@@ -149,7 +151,7 @@ BuildBarOptions = function(id, barData)
                 name = "Bar Opacity",
                 min = 0, max = 1, step = 0.05,
                 isPercent = true,
-                get = function() return barData.alpha or 1.0 end,
+                get = function() return BazBars.GetBarSetting(barData, "alpha") or 1.0 end,
                 set = function(_, val)
                     barData.alpha = val
                     local frame = addon.Bar:Get(id)
@@ -157,6 +159,7 @@ BuildBarOptions = function(id, barData)
                         addon.Bar:SetBarAlpha(frame, val)
                     end
                 end,
+                disabled = function() return BazBars.IsGlobalOverrideActive("alpha") end,
             },
             visibilityHeader = {
                 order = 20,
@@ -168,7 +171,7 @@ BuildBarOptions = function(id, barData)
                 type = "toggle",
                 name = "Mouseover Fade",
                 desc = "Bar fades out when mouse is not hovering over it",
-                get = function() return barData.mouseoverFade or false end,
+                get = function() return BazBars.GetBarSetting(barData, "mouseoverFade") or false end,
                 set = function(_, val)
                     barData.mouseoverFade = val
                     local frame = addon.Bar:Get(id)
@@ -176,13 +179,14 @@ BuildBarOptions = function(id, barData)
                         addon.Bar:ApplyMouseoverFade(frame)
                     end
                 end,
+                disabled = function() return BazBars.IsGlobalOverrideActive("mouseoverFade") end,
             },
             alwaysShowButtons = {
                 order = 22,
                 type = "toggle",
                 name = "Always Show Buttons",
                 desc = "Show empty button slots even when no ability is assigned",
-                get = function() return barData.alwaysShowButtons ~= false end,
+                get = function() return BazBars.GetBarSetting(barData, "alwaysShowButtons") ~= false end,
                 set = function(_, val)
                     barData.alwaysShowButtons = val
                     local frame = addon.Bar:Get(id)
@@ -190,13 +194,14 @@ BuildBarOptions = function(id, barData)
                         addon.Bar:UpdateButtonVisibility(frame)
                     end
                 end,
+                disabled = function() return BazBars.IsGlobalOverrideActive("alwaysShowButtons") end,
             },
             showSlotArt = {
                 order = 23,
                 type = "toggle",
                 name = "Show Slot Art",
                 desc = "Show the background texture on each button slot",
-                get = function() return barData.showSlotArt ~= false end,
+                get = function() return BazBars.GetBarSetting(barData, "showSlotArt") ~= false end,
                 set = function(_, val)
                     barData.showSlotArt = val
                     local frame = addon.Bar:Get(id)
@@ -204,6 +209,7 @@ BuildBarOptions = function(id, barData)
                         addon.Bar:UpdateSlotArt(frame)
                     end
                 end,
+                disabled = function() return BazBars.IsGlobalOverrideActive("showSlotArt") end,
             },
             visibilityMacroHeader = {
                 order = 30,
@@ -252,10 +258,24 @@ end
 -- Register with BazCore OptionsPanel
 ---------------------------------------------------------------------------
 
-local function GetGlobalOptionsTable()
+local function GetOverrides()
+    if not addon.db or not addon.db.profile then return {} end
+    if not addon.db.profile.globalOverrides then addon.db.profile.globalOverrides = {} end
+    return addon.db.profile.globalOverrides
+end
+
+local function SetOverride(key, field, value)
+    if not addon.db or not addon.db.profile then return end
+    if not addon.db.profile.globalOverrides then addon.db.profile.globalOverrides = {} end
+    if not addon.db.profile.globalOverrides[key] then
+        addon.db.profile.globalOverrides[key] = { enabled = false, value = nil }
+    end
+    addon.db.profile.globalOverrides[key][field] = value
+end
+
+local function GetSettingsOptionsTable()
     return {
-        name = "Global Options",
-        subtitle = "Settings that apply to all bars",
+        name = "Settings",
         type = "group",
         args = {
             displayHeader = {
@@ -321,6 +341,21 @@ local function GetGlobalOptionsTable()
     }
 end
 
+local function GetGlobalOptionsTable()
+    return BazCore:CreateGlobalOptionsPage("BazBars", {
+        getOverrides = GetOverrides,
+        setOverride = SetOverride,
+        overrides = {
+            { key = "scale",             label = "Icon Size",           type = "slider",  default = 1.0, min = BazBars.MIN_SCALE, max = BazBars.MAX_SCALE, step = 0.05 },
+            { key = "alpha",             label = "Bar Opacity",         type = "slider",  default = 1.0, min = 0, max = 1, step = 0.05 },
+            { key = "spacing",           label = "Icon Padding",        type = "slider",  default = 2, min = 0, max = 20, step = 1 },
+            { key = "showSlotArt",       label = "Show Slot Art",       type = "toggle",  default = true },
+            { key = "alwaysShowButtons", label = "Always Show Buttons", type = "toggle",  default = true },
+            { key = "mouseoverFade",     label = "Mouseover Fade",      type = "toggle",  default = false },
+        },
+    })
+end
+
 function Options:Setup()
     -- Parent category — addon info and quick guide
     BazCore:RegisterOptionsTable("BazBars", function()
@@ -353,6 +388,16 @@ function Options:Setup()
     end)
     BazCore:AddToSettings("BazBars", "BazBars")
 
+    -- Settings subcategory
+    BazCore:RegisterOptionsTable("BazBars-Settings", GetSettingsOptionsTable)
+    BazCore:AddToSettings("BazBars-Settings", "Settings", "BazBars")
+
+    -- Profiles subcategory
+    BazCore:RegisterOptionsTable("BazBars-Profiles", function()
+        return BazCore:GetProfileOptionsTable("BazBars")
+    end)
+    BazCore:AddToSettings("BazBars-Profiles", "Profiles", "BazBars")
+
     -- Global Options subcategory
     BazCore:RegisterOptionsTable("BazBars-Global", GetGlobalOptionsTable)
     BazCore:AddToSettings("BazBars-Global", "Global Options", "BazBars")
@@ -360,12 +405,6 @@ function Options:Setup()
     -- Bar Options subcategory
     BazCore:RegisterOptionsTable("BazBars-Bars", GetOptionsTable)
     BazCore:AddToSettings("BazBars-Bars", "Bar Options", "BazBars")
-
-    -- Profiles subcategory
-    BazCore:RegisterOptionsTable("BazBars-Profiles", function()
-        return BazCore:GetProfileOptionsTable("BazBars")
-    end)
-    BazCore:AddToSettings("BazBars-Profiles", "Profiles", "BazBars")
 end
 
 function Options:Refresh()

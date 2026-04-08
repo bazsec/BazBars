@@ -38,6 +38,38 @@ BazBars.ACCEPTED_TYPES = {
     equipmentset = true,
 }
 
+---------------------------------------------------------------------------
+-- Global Override Helpers
+---------------------------------------------------------------------------
+
+-- Read a per-bar setting, respecting global overrides
+function BazBars.GetBarSetting(barData, key)
+    local bbAddon = BazCore:GetAddon("BazBars")
+    if bbAddon and bbAddon.db then
+        local overrides = bbAddon.db.profile.globalOverrides
+        if overrides then
+            local override = overrides[key]
+            if override and override.enabled then
+                return override.value
+            end
+        end
+    end
+    return barData[key]
+end
+
+-- Check if a global override is active for a given key
+function BazBars.IsGlobalOverrideActive(key)
+    local bbAddon = BazCore:GetAddon("BazBars")
+    if not bbAddon or not bbAddon.db then return false end
+    local overrides = bbAddon.db.profile.globalOverrides
+    if not overrides then return false end
+    return overrides[key] and overrides[key].enabled or false
+end
+
+---------------------------------------------------------------------------
+-- Defaults for new bar saved data
+---------------------------------------------------------------------------
+
 -- Defaults for new bar saved data
 function BazBars.DefaultBarData(id)
     return {

@@ -1,5 +1,11 @@
 # BazBars Changelog
 
+## 022 - Global Options + Settings Page
+- Added Global Options page with per-bar overrides for scale, opacity, spacing, slot art, always show buttons, and mouseover fade
+- When a global override is enabled, per-bar settings are grayed out
+- Moved display settings (range color, tooltips, keybind text, macro names) to new Settings subcategory
+- Subcategory order: Settings, Profiles, Global Options, Bar Options
+
 ## 020 - Macro Fixes + Button Move System
 - Fixed #showtooltip in macros now displays proper spell/item tooltips
 - Fixed macros shifting when other macros deleted (stored by name instead of index)

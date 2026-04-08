@@ -13,6 +13,7 @@ local addon = BazCore:RegisterAddon("BazBars", {
     defaults = {
         bars = {},
         keybinds = {},
+        globalOverrides = {},
         minimap = { hide = false },
         fullRangeColor = true,
         showTooltips = true,
@@ -389,7 +390,7 @@ function addon:ImportBar(encodedString)
     self.Bar:ApplyVisibility(frame)
     self.Bar:UpdateSlotArt(frame)
     self.Bar:UpdateButtonVisibility(frame)
-    self.Bar:SetBarAlpha(frame, barData.alpha or 1.0)
+    self.Bar:SetBarAlpha(frame, BazBars.GetBarSetting(barData, "alpha") or 1.0)
     self.Bar:ApplyMouseoverFade(frame)
     self.Options:Refresh()
 
@@ -431,7 +432,7 @@ function addon:DuplicateBar(sourceID)
     self.Bar:ApplyVisibility(frame)
     self.Bar:UpdateSlotArt(frame)
     self.Bar:UpdateButtonVisibility(frame)
-    self.Bar:SetBarAlpha(frame, newData.alpha or 1.0)
+    self.Bar:SetBarAlpha(frame, BazBars.GetBarSetting(newData, "alpha") or 1.0)
     self.Bar:ApplyMouseoverFade(frame)
     self.Options:Refresh()
 

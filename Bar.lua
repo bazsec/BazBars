@@ -43,7 +43,7 @@ function Bar:Create(barData)
     end
 
     -- Scale
-    frame:SetScale(barData.scale or BazBars.DEFAULT_SCALE)
+    frame:SetScale(BazBars.GetBarSetting(barData, "scale") or BazBars.DEFAULT_SCALE)
 
     -- Create buttons grid
     Bar:CreateButtons(frame, barData)
@@ -185,7 +185,7 @@ end
 
 function Bar:LayoutButtons(frame, barData)
     local size = BazBars.DEFAULT_BUTTON_SIZE
-    local spacing = barData.spacing or BazBars.DEFAULT_SPACING
+    local spacing = BazBars.GetBarSetting(barData, "spacing") or BazBars.DEFAULT_SPACING
     local rows = barData.rows
     local cols = barData.cols
     local padding = 2
@@ -278,13 +278,13 @@ function Bar:RegisterEditMode(frame, barData)
             { type = "slider", key = "scale", label = "Icon Size", section = "Layout",
               min = 50, max = 250, step = 5,
               format = function(v) return math.floor(v + 0.5) .. "%" end,
-              get = function() return (bd.scale or 1) * 100 end,
+              get = function() return (BazBars.GetBarSetting(bd, "scale") or 1) * 100 end,
               set = function(v)
                   Bar:SetScale(frame, v / 100)
               end },
             { type = "slider", key = "spacing", label = "Icon Padding", section = "Layout",
               min = 0, max = 20, step = 1,
-              get = function() return bd.spacing end,
+              get = function() return BazBars.GetBarSetting(bd, "spacing") end,
               set = function(v)
                   Bar:Resize(frame, bd.rows, bd.cols, v)
               end },
@@ -292,14 +292,14 @@ function Bar:RegisterEditMode(frame, barData)
 
             -- Appearance
             { type = "checkbox", key = "alwaysShowButtons", label = "Always Show Buttons", section = "Appearance",
-              get = function() return bd.alwaysShowButtons ~= false end,
+              get = function() return BazBars.GetBarSetting(bd, "alwaysShowButtons") ~= false end,
               set = function(v)
                   bd.alwaysShowButtons = v
                   addon.db.profile.bars[bd.id].alwaysShowButtons = v
                   Bar:UpdateButtonVisibility(frame)
               end },
             { type = "checkbox", key = "showSlotArt", label = "Show Slot Art", section = "Appearance",
-              get = function() return bd.showSlotArt ~= false end,
+              get = function() return BazBars.GetBarSetting(bd, "showSlotArt") ~= false end,
               set = function(v)
                   bd.showSlotArt = v
                   addon.db.profile.bars[bd.id].showSlotArt = v
@@ -308,12 +308,12 @@ function Bar:RegisterEditMode(frame, barData)
             { type = "slider", key = "alpha", label = "Bar Opacity", section = "Appearance",
               min = 0, max = 100, step = 5,
               format = function(v) return math.floor(v + 0.5) .. "%" end,
-              get = function() return (bd.alpha or 1.0) * 100 end,
+              get = function() return (BazBars.GetBarSetting(bd, "alpha") or 1.0) * 100 end,
               set = function(v)
                   Bar:SetBarAlpha(frame, v / 100)
               end },
             { type = "checkbox", key = "mouseoverFade", label = "Mouseover Fade", section = "Appearance",
-              get = function() return bd.mouseoverFade or false end,
+              get = function() return BazBars.GetBarSetting(bd, "mouseoverFade") or false end,
               set = function(v)
                   bd.mouseoverFade = v
                   addon.db.profile.bars[bd.id].mouseoverFade = v
@@ -500,9 +500,9 @@ end
 function Bar:ApplyMouseoverFade(frame)
     local barData = frame.barData
 
-    if barData.mouseoverFade then
-        local fadeAlpha = barData.mouseoverAlpha or 0.3
-        local fullAlpha = barData.alpha or 1.0
+    if BazBars.GetBarSetting(barData, "mouseoverFade") then
+        local fadeAlpha = BazBars.GetBarSetting(barData, "mouseoverAlpha") or 0.3
+        local fullAlpha = BazBars.GetBarSetting(barData, "alpha") or 1.0
 
         -- Start at faded alpha
         frame:SetAlpha(fadeAlpha)
@@ -530,7 +530,7 @@ function Bar:ApplyMouseoverFade(frame)
             frame.bbFadeFrame:SetScript("OnUpdate", nil)
         end
         frame.bbFadedIn = nil
-        frame:SetAlpha(barData.alpha or 1.0)
+        frame:SetAlpha(BazBars.GetBarSetting(barData, "alpha") or 1.0)
     end
 end
 
@@ -594,7 +594,7 @@ end
 ---------------------------------------------------------------------------
 
 function Bar:UpdateButtonVisibility(frame)
-    local showEmpty = frame.barData.alwaysShowButtons ~= false
+    local showEmpty = BazBars.GetBarSetting(frame.barData, "alwaysShowButtons") ~= false
     for r, row in pairs(frame.buttons) do
         for c, btn in pairs(row) do
             if r <= frame.barData.rows and c <= frame.barData.cols then
@@ -611,7 +611,7 @@ function Bar:UpdateButtonVisibility(frame)
 end
 
 function Bar:UpdateSlotArt(frame)
-    local show = frame.barData.showSlotArt ~= false
+    local show = BazBars.GetBarSetting(frame.barData, "showSlotArt") ~= false
     for r, row in pairs(frame.buttons) do
         for c, btn in pairs(row) do
             -- Only toggle the eagle/slot art texture
@@ -672,7 +672,7 @@ function Bar:LoadAll()
             Bar:ApplyVisibility(frame)
             Bar:UpdateSlotArt(frame)
             Bar:UpdateButtonVisibility(frame)
-            Bar:SetBarAlpha(frame, barData.alpha or 1.0)
+            Bar:SetBarAlpha(frame, BazBars.GetBarSetting(barData, "alpha") or 1.0)
             Bar:ApplyMouseoverFade(frame)
         end
     end
