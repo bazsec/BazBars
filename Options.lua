@@ -324,64 +324,32 @@ end
 function Options:Setup()
     -- Parent category — addon info and quick guide
     BazCore:RegisterOptionsTable("BazBars", function()
-        local version = C_AddOns.GetAddOnMetadata("BazBars", "Version") or "?"
-        return {
-            name = "BazBars",
-            subtitle = "Custom extra action bars  —  v" .. version,
-            type = "group",
-            args = {
-                about = {
-                    order = 1,
-                    type = "description",
-                    name = "BazBars lets you create unlimited custom action bars, completely independent of Blizzard's action bar system. Drag spells, items, macros, toys, mounts, and battle pets onto your bars.",
-                },
-                guideHeader = {
-                    order = 10,
-                    type = "header",
-                    name = "Quick Guide",
-                },
-                guide1 = {
-                    order = 11,
-                    type = "description",
-                    name = "|cffffd700Creating Bars|r\nOpen Edit Mode (ESC > Edit Mode) and click \"Create New BazBar\", or use |cff00ff00/bb create|r",
-                },
-                guide2 = {
-                    order = 12,
-                    type = "description",
-                    name = "|cffffd700Adding Actions|r\nDrag spells, items, macros, toys, or mounts from their respective panels onto any BazBar button.",
-                },
-                guide3 = {
-                    order = 13,
-                    type = "description",
-                    name = "|cffffd700Removing Actions|r\nShift+Drag to remove a spell/item. Shift+Right-Click to clear mounts and battle pets.",
-                },
-                guide4 = {
-                    order = 14,
-                    type = "description",
-                    name = "|cffffd700Configuring Bars|r\nEnter Edit Mode, click a bar to select it, and use the settings popup. Or open |cff00ff00/bb|r for the full options panel.",
-                },
-                guide5 = {
-                    order = 15,
-                    type = "description",
-                    name = "|cffffd700Keybinds|r\nIn Edit Mode, select a bar and click \"Quick Keybind Mode\". Hover a button and press a key to bind it. Press ESC to unbind.",
-                },
-                guide6 = {
-                    order = 16,
-                    type = "description",
-                    name = "|cffffd700Import / Export|r\nIn Edit Mode, select a bar and use \"Export Bar Config\" to share. Use |cff00ff00/bb import|r to import a shared string.",
-                },
-                commandsHeader = {
-                    order = 20,
-                    type = "header",
-                    name = "Slash Commands",
-                },
-                commands = {
-                    order = 21,
-                    type = "description",
-                    name = "|cff00ff00/bb|r — Open settings\n|cff00ff00/bb create [cols] [rows]|r — Create a new bar\n|cff00ff00/bb delete <id>|r — Delete a bar\n|cff00ff00/bb duplicate <id>|r — Duplicate a bar\n|cff00ff00/bb export <id>|r — Export bar config\n|cff00ff00/bb import|r — Import bar config\n|cff00ff00/bb reset|r — Reset all bars",
-                },
+        return BazCore:CreateLandingPage("BazBars", {
+            subtitle = "Custom extra action bars",
+            description = "Create unlimited custom action bars, completely independent of Blizzard's action bar system. " ..
+                "Drag spells, items, macros, toys, mounts, and battle pets onto your bars.",
+            features = "Unlimited bars with up to 24x24 button grids. " ..
+                "Blizzard-native button styling with cooldowns, proc glows, and range tinting. " ..
+                "Full Edit Mode integration with grid snapping and settings popup. " ..
+                "Quick keybind mode, import/export, bar duplication, visibility macros, and mouseover fade. " ..
+                "Masque skinning support.",
+            guide = {
+                { "Creating Bars", "Open Edit Mode and click \"Create New BazBar\", or use |cff00ff00/bb create|r" },
+                { "Adding Actions", "Drag spells, items, macros, toys, or mounts onto any button" },
+                { "Removing", "Shift+Drag to remove. Shift+Right-Click for mounts and pets" },
+                { "Settings", "Edit Mode > click bar > settings popup, or |cff00ff00/bb|r for full options" },
+                { "Keybinds", "Edit Mode > select bar > Quick Keybind Mode. Hover + press key to bind" },
             },
-        }
+            commands = {
+                { "/bb", "Open settings" },
+                { "/bb create [cols] [rows]", "Create a new bar" },
+                { "/bb delete <id>", "Delete a bar" },
+                { "/bb duplicate <id>", "Duplicate a bar" },
+                { "/bb export <id>", "Export bar config" },
+                { "/bb import", "Import bar config" },
+                { "/bb reset", "Reset all bars" },
+            },
+        })
     end)
     BazCore:AddToSettings("BazBars", "BazBars")
 
