@@ -1,5 +1,8 @@
 # BazBars Changelog
 
+## 024 - Use BazCore:SetScaleFromCenter
+- Bar scaling now uses shared BazCore:SetScaleFromCenter() utility
+
 ## 023 - Unified Profiles
 - Profiles now managed centrally in BazCore settings
 - Removed per-addon Profiles subcategory

@@ -453,25 +453,9 @@ end
 ---------------------------------------------------------------------------
 
 function Bar:SetScale(frame, scale)
-    scale = math.max(BazBars.MIN_SCALE, math.min(BazBars.MAX_SCALE, scale))
-
-    -- Get center position before scaling
-    local cx, cy = frame:GetCenter()
-    local oldScale = frame:GetScale()
-    if cx and cy then
-        cx = cx * oldScale
-        cy = cy * oldScale
-    end
-
-    frame:SetScale(scale)
+    scale = BazCore:SetScaleFromCenter(frame, scale, BazBars.MIN_SCALE, BazBars.MAX_SCALE)
     frame.barData.scale = scale
-
-    -- Re-anchor to keep the center in the same place
-    if cx and cy then
-        frame:ClearAllPoints()
-        frame:SetPoint("CENTER", UIParent, "BOTTOMLEFT", cx / scale, cy / scale)
-        Bar:SavePosition(frame)
-    end
+    Bar:SavePosition(frame)
 
     local db = addon.db.profile.bars[frame.barData.id]
     if db then
