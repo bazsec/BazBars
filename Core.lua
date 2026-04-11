@@ -174,6 +174,44 @@ addon.config.onLoad = function(self)
     self.Options:Setup()
 end
 
+---------------------------------------------------------------------------
+-- First-run CVar warning
+-- If the player has "cast on key down" enabled, dragging BazBars buttons
+-- would also fire the cast (mousedown triggers the secure click before drag
+-- can start). BazBars buttons always register for mouseup, so they work
+-- correctly regardless — but the user may see inconsistent behavior between
+-- their Blizzard bars and BazBars. Offer to change the CVar on first run.
+---------------------------------------------------------------------------
+
+StaticPopupDialogs["BAZBARS_KEYDOWN_WARNING"] = {
+    text = "|cff3399ffBazBars|r works best with |cffffffffCast on key up|r enabled. " ..
+        "This is a global game setting and also matches Blizzard's default.\n\n" ..
+        "You currently have |cffff7f00Cast on key down|r enabled. BazBars buttons " ..
+        "still work correctly, but your Blizzard action bars will feel slightly " ..
+        "different from BazBars.\n\n" ..
+        "Change the setting to |cffffffffCast on key up|r now?",
+    button1 = "Yes, change it",
+    button2 = "Keep my setting",
+    OnAccept = function()
+        SetCVar("ActionButtonUseKeyDown", "0")
+        print("|cff3399ff[BazBars]|r Cast on key up enabled.")
+    end,
+    timeout = 0,
+    whileDead = true,
+    hideOnEscape = true,
+    preferredIndex = 3,
+}
+
+local function MaybeShowKeyDownWarning()
+    if addon.db.profile.keyDownWarningShown then return end
+    if not GetCVarBool("ActionButtonUseKeyDown") then
+        addon.db.profile.keyDownWarningShown = true
+        return
+    end
+    addon.db.profile.keyDownWarningShown = true
+    StaticPopup_Show("BAZBARS_KEYDOWN_WARNING")
+end
+
 addon.config.onReady = function(self)
     self.Bar:LoadAll()
 
@@ -193,6 +231,7 @@ addon.config.onReady = function(self)
     C_Timer.After(1, function()
         addon:UpdateAllButtons()
         addon.Keybinds:RestoreAll()
+        MaybeShowKeyDownWarning()
     end)
 end
 
@@ -309,10 +348,10 @@ end
 ---------------------------------------------------------------------------
 
 function addon:OnRangeEvent()
-    for id, frame in pairs(self.Bar:GetAll()) do
-        for r, row in pairs(frame.buttons) do
-            for c, btn in pairs(row) do
-                if btn.bbCommand then
+    for _, frame in pairs(self.Bar:GetAll()) do
+        for _, row in pairs(frame.buttons) do
+            for _, btn in pairs(row) do
+                if btn.action then
                     self.Button:UpdateRange(btn)
                 end
             end
@@ -321,10 +360,10 @@ function addon:OnRangeEvent()
 end
 
 function addon:UpdateAllButtons()
-    for id, frame in pairs(self.Bar:GetAll()) do
-        for r, row in pairs(frame.buttons) do
-            for c, btn in pairs(row) do
-                if btn.bbCommand then
+    for _, frame in pairs(self.Bar:GetAll()) do
+        for _, row in pairs(frame.buttons) do
+            for _, btn in pairs(row) do
+                if btn.action then
                     self.Button:UpdateButton(btn)
                 end
             end

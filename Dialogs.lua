@@ -13,7 +13,7 @@ local macrotextFrame = nil
 local macrotextTarget = nil -- the button being edited
 
 local function CreateMacrotextFrame()
-    local f = CreateFrame("Frame", "BazBarsMacrotextFrame", UIParent, "DialogBorderTranslucentTemplate")
+    local f = CreateFrame("Frame", "BazBarsMacrotextFrame", UIParent, "BackdropTemplate")
     f:SetSize(400, 300)
     f:SetPoint("CENTER")
     f:SetFrameStrata("FULLSCREEN_DIALOG")
@@ -22,6 +22,14 @@ local function CreateMacrotextFrame()
     f:RegisterForDrag("LeftButton")
     f:SetScript("OnDragStart", function(self) self:StartMoving() end)
     f:SetScript("OnDragStop", function(self) self:StopMovingOrSizing() end)
+
+    f:SetBackdrop({
+        bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background",
+        edgeFile = "Interface\\DialogFrame\\UI-DialogBox-Border",
+        tile = true, tileSize = 32, edgeSize = 32,
+        insets = { left = 11, right = 11, top = 12, bottom = 11 },
+    })
+    f:SetBackdropColor(0, 0, 0, 1)
 
     local title = f:CreateFontString(nil, "ARTWORK", "GameFontHighlightLarge")
     title:SetPoint("TOP", 0, -15)
@@ -68,8 +76,8 @@ local function CreateMacrotextFrame()
         edgeSize = 12,
         insets = { left = 3, right = 3, top = 3, bottom = 3 },
     })
-    bg:SetBackdropColor(0, 0, 0, 0.5)
-    bg:SetBackdropBorderColor(0.4, 0.4, 0.4, 0.8)
+    bg:SetBackdropColor(0.08, 0.08, 0.1, 1.0)
+    bg:SetBackdropBorderColor(0.4, 0.4, 0.4, 1.0)
     bg:SetFrameLevel(scrollFrame:GetFrameLevel() - 1)
 
     local saveBtn = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
@@ -79,10 +87,7 @@ local function CreateMacrotextFrame()
     saveBtn:SetScript("OnClick", function()
         if macrotextTarget then
             local text = editBox:GetText()
-            if text == "" then text = nil end
-            addon.Button:SetAction(macrotextTarget, macrotextTarget.bbCommand,
-                macrotextTarget.bbValue, macrotextTarget.bbSubValue,
-                macrotextTarget.bbID, text)
+            BazBars.Actions:SetMacroText(macrotextTarget, text)
         end
         f:Hide()
     end)
@@ -94,9 +99,7 @@ local function CreateMacrotextFrame()
     clearBtn:SetScript("OnClick", function()
         editBox:SetText("")
         if macrotextTarget then
-            addon.Button:SetAction(macrotextTarget, macrotextTarget.bbCommand,
-                macrotextTarget.bbValue, macrotextTarget.bbSubValue,
-                macrotextTarget.bbID, nil)
+            addon.Button:ClearAction(macrotextTarget)
         end
         f:Hide()
     end)
@@ -113,6 +116,36 @@ function Dialogs:OpenMacrotextEditor(barFrame)
     macrotextTarget = nil
     macrotextFrame.btnLabel:SetText("Click a button on the bar to select it")
     macrotextFrame.editBox:SetText("")
+
+    -- Hide Edit Mode overlays on all registered frames so the user can
+    -- freely click individual BazBars buttons. Deselect the current frame
+    -- too so the settings popup and yellow selection highlight go away.
+    -- All overlays are restored when the editor closes.
+    macrotextFrame._restoreEditMode = BazCore:IsEditMode()
+    if macrotextFrame._restoreEditMode then
+        BazCore:DeselectEditFrame(barFrame)
+        -- Hide every registered overlay so clicks pass through to buttons
+        for _, frame in pairs(addon.Bar:GetAll()) do
+            if frame._bazEditOverlay then
+                frame._bazEditOverlay:Hide()
+            end
+        end
+    end
+
+    macrotextFrame:SetScript("OnHide", function(self)
+        if self._restoreEditMode then
+            -- Bring overlays back if the user is still in Edit Mode
+            if BazCore:IsEditMode() then
+                for _, frame in pairs(addon.Bar:GetAll()) do
+                    if frame._bazEditOverlay then
+                        frame._bazEditOverlay:Show()
+                    end
+                end
+            end
+            self._restoreEditMode = nil
+        end
+    end)
+
     macrotextFrame:Show()
 
     for r, row in pairs(barFrame.buttons) do
@@ -122,11 +155,28 @@ function Dialogs:OpenMacrotextEditor(barFrame)
                     if macrotextFrame and macrotextFrame:IsShown() then
                         macrotextTarget = self
                         local label = string.format("Button [%d, %d]", self.bbRow, self.bbCol)
-                        if self.bbCommand then
-                            label = label .. " - " .. (self.bbValue or self.bbCommand)
+
+                        -- Display the current action's name/type (new format)
+                        -- or legacy fields as a fallback.
+                        local currentBody = ""
+                        if self.action then
+                            local handler = BazBars.Actions:Get(self.action.type)
+                            if handler and handler.getName then
+                                local name = handler.getName(self.action.data)
+                                if name then
+                                    label = label .. " - " .. name
+                                end
+                            else
+                                label = label .. " - " .. self.action.type
+                            end
+                            -- If the current action IS a macrotext, load its body
+                            if self.action.type == "macrotext" and self.action.data then
+                                currentBody = self.action.data.body or ""
+                            end
                         end
+
                         macrotextFrame.btnLabel:SetText(label)
-                        macrotextFrame.editBox:SetText(self.bbMacrotext or "")
+                        macrotextFrame.editBox:SetText(currentBody)
                         macrotextFrame.editBox:SetFocus()
                     end
                 end)

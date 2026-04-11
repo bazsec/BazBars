@@ -1,5 +1,17 @@
 # BazBars Changelog
 
+## 025 - Drag & Drop Rewrite
+- Completely rewrote the drag & drop system as modular per-type action handlers
+- New handlers: Spell, Item, Toy, Mount, BattlePet, Macro, EquipmentSet, MacroText
+- Each handler lives in Actions/ and owns cursor detection, pickup, secure attributes, visuals, and persistence for its type
+- Bars are now unlocked by default — drag without holding Shift
+- Added per-bar "Lock Buttons" toggle (Edit Mode popup + bar options panel)
+- Drag-fires-cast bug fixed for all types
+- Mount swaps preserve the exact variant (skin/color) instead of collapsing to the canonical mountID
+- First-run warning offers to change "Cast on key down" CVar so drag-and-drop works consistently
+- Old flat storage format (bbCommand/bbValue/bbSubValue/bbID/bbMacrotext) auto-migrates to the new `{ type, data }` format
+- Dropped ~700 lines of legacy code from Button.lua
+
 ## 024 - Use BazCore:SetScaleFromCenter
 - Bar scaling now uses shared BazCore:SetScaleFromCenter() utility
 

@@ -27,17 +27,6 @@ BazBars.BAR_BG_COLOR = { r = 0.1, g = 0.1, b = 0.1, a = 0.6 }
 BazBars.BAR_BORDER_COLOR = { r = 0.3, g = 0.3, b = 0.3, a = 0.8 }
 BazBars.BAR_BG_UNLOCKED = { r = 0.15, g = 0.15, b = 0.3, a = 0.7 }
 
--- Accepted cursor types for drag-and-drop
-BazBars.ACCEPTED_TYPES = {
-    spell = true,
-    item = true,
-    macro = true,
-    mount = true,
-    companion = true,
-    battlepet = true,
-    equipmentset = true,
-}
-
 ---------------------------------------------------------------------------
 -- Global Override Helpers
 ---------------------------------------------------------------------------

@@ -730,11 +730,7 @@ local function CreateMacrotextFrame()
     saveBtn:SetText("Save")
     saveBtn:SetScript("OnClick", function()
         if macrotextTarget then
-            local text = editBox:GetText()
-            if text == "" then text = nil end
-            addon.Button:SetAction(macrotextTarget, macrotextTarget.bbCommand,
-                macrotextTarget.bbValue, macrotextTarget.bbSubValue,
-                macrotextTarget.bbID, text)
+            BazBars.Actions:SetMacroText(macrotextTarget, editBox:GetText())
         end
         f:Hide()
     end)
@@ -747,9 +743,7 @@ local function CreateMacrotextFrame()
     clearBtn:SetScript("OnClick", function()
         editBox:SetText("")
         if macrotextTarget then
-            addon.Button:SetAction(macrotextTarget, macrotextTarget.bbCommand,
-                macrotextTarget.bbValue, macrotextTarget.bbSubValue,
-                macrotextTarget.bbID, nil)
+            addon.Button:ClearAction(macrotextTarget)
         end
         f:Hide()
     end)
@@ -776,11 +770,25 @@ function EditSettings:OpenMacrotextEditor(barFrame)
                     if macrotextFrame and macrotextFrame:IsShown() then
                         macrotextTarget = self
                         local label = string.format("Button [%d, %d]", self.bbRow, self.bbCol)
-                        if self.bbCommand then
-                            label = label .. " - " .. (self.bbValue or self.bbCommand)
+
+                        local currentBody = ""
+                        if self.action then
+                            local handler = BazBars.Actions:Get(self.action.type)
+                            if handler and handler.getName then
+                                local name = handler.getName(self.action.data)
+                                if name then
+                                    label = label .. " - " .. name
+                                end
+                            else
+                                label = label .. " - " .. self.action.type
+                            end
+                            if self.action.type == "macrotext" and self.action.data then
+                                currentBody = self.action.data.body or ""
+                            end
                         end
+
                         macrotextFrame.btnLabel:SetText(label)
-                        macrotextFrame.editBox:SetText(self.bbMacrotext or "")
+                        macrotextFrame.editBox:SetText(currentBody)
                         macrotextFrame.editBox:SetFocus()
                     end
                 end)

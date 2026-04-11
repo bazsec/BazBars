@@ -211,6 +211,16 @@ BuildBarOptions = function(id, barData)
                 end,
                 disabled = function() return BazBars.IsGlobalOverrideActive("showSlotArt") end,
             },
+            lockButtons = {
+                order = 24,
+                type = "toggle",
+                name = "Lock Buttons",
+                desc = "Prevent buttons from being dragged or swapped. When unlocked (default), you can drag buttons to move or swap them.",
+                get = function() return barData.locked or false end,
+                set = function(_, val)
+                    barData.locked = val
+                end,
+            },
             visibilityMacroHeader = {
                 order = 30,
                 type = "header",
@@ -327,10 +337,11 @@ local function GetSettingsOptionsTable()
                 set = function(_, val)
                     addon.db.profile.showMacroNames = val
                     for _, frame in pairs(addon.Bar:GetAll()) do
-                        for r, row in pairs(frame.buttons) do
-                            for c, btn in pairs(row) do
+                        for _, row in pairs(frame.buttons) do
+                            for _, btn in pairs(row) do
                                 if btn.Name then
-                                    btn.Name:SetShown(val and btn.bbCommand == "macro")
+                                    local isMacro = btn.action and btn.action.type == "macro"
+                                    btn.Name:SetShown(val and isMacro)
                                 end
                             end
                         end

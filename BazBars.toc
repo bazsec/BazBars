@@ -1,7 +1,7 @@
 ## Interface: 120001
 ## Title: BazBars
 ## Author: Baz4k
-## Version: 024
+## Version: 025
 ## Notes: Custom extra action bars - independent of standard action bars
 ## X-License: GPL v2
 ## X-Website: https://www.curseforge.com/wow/addons/bazbars
@@ -15,6 +15,15 @@
 
 Constants.lua
 Core.lua
+Actions\Registry.lua
+Actions\MacroText.lua
+Actions\Spell.lua
+Actions\Toy.lua
+Actions\Mount.lua
+Actions\BattlePet.lua
+Actions\Macro.lua
+Actions\EquipmentSet.lua
+Actions\Item.lua
 BazBars.xml
 Button.lua
 Bar.lua

@@ -72,16 +72,47 @@ function Bar:CreateSingleButton(frame, barData, r, c)
     local btnName = "BazBarsButton" .. buttonCount
     local btn = CreateFrame("Button", btnName, frame, "BazBarsButtonTemplate")
     btn:RegisterForDrag("LeftButton")
-    btn:RegisterForClicks("AnyDown", "AnyUp")
+    -- Always AnyUp (regardless of the ActionButtonUseKeyDown CVar) so that
+    -- dragging works without requiring Shift. With AnyUp, the mouseup click
+    -- is cancelled by an active drag — so click-drag picks up the button
+    -- without firing its action. Core.lua shows a first-run warning if the
+    -- user has key-down casting enabled and offers to change it.
+    btn:RegisterForClicks("AnyUp")
+
+    -- Prevent the secure action from firing when the cursor has contents.
+    -- Without this, clicking a button with something on the cursor would
+    -- both cast/use the button's action AND trigger OnReceiveDrag. We stash
+    -- the type attribute in PreClick and restore it in PostClick.
+    -- Custom SecureActionButtons don't auto-fire OnReceiveDrag on click
+    -- when the cursor has contents, the way Blizzard's action buttons do.
+    -- We intercept the click: PreClick clears the type attribute to prevent
+    -- the secure cast, and PostClick manually triggers the drop handling.
+    btn:HookScript("PreClick", function(self)
+        if InCombatLockdown() then return end
+        if GetCursorInfo() then
+            self._bazStashedType = self:GetAttribute("type") or false
+            self:SetAttribute("type", nil)
+        end
+    end)
+    btn:HookScript("PostClick", function(self)
+        if InCombatLockdown() then return end
+        if self._bazStashedType == nil then return end
+
+        self._bazStashedType = nil
+
+        -- If cursor has contents, this was a drop attempt — handle it
+        if GetCursorInfo() then
+            addon.Button:ReceiveDrag(self)
+        end
+        -- ReceiveDrag (if it ran) will have reset the button's type attribute
+        -- via SetActionFromHandler, so we don't need to restore the stash.
+    end)
 
     btn.bbBarID = barData.id
     btn.bbBarData = barData
     btn.bbRow = r
     btn.bbCol = c
-    btn.bbCommand = nil
-    btn.bbValue = nil
-    btn.bbSubValue = nil
-    btn.bbID = nil
+    btn.action = nil
     btn.bbShowEmpty = false
 
     -- Start clean (template provides SlotBackground, SlotArt, NormalTexture, mask)
@@ -99,53 +130,21 @@ function Bar:CreateSingleButton(frame, barData, r, c)
     btn:RegisterEvent("SPELL_UPDATE_USABLE")
 
     btn:SetScript("OnEvent", function(self, event, arg1)
-        local cmd = self.bbCommand
-        if not cmd then return end
+        if not self.action then return end
 
-        -- Spell cooldown
-        if event == "SPELL_UPDATE_COOLDOWN" and cmd == "spell" and self.bbID then
-            if C_Spell.GetSpellCooldownDuration then
-                local durationObj = C_Spell.GetSpellCooldownDuration(self.bbID)
-                if durationObj then
-                    self.cooldown:SetCooldownFromDurationObject(durationObj)
-                    self.cooldown:Show()
-                else
-                    self.cooldown:Clear()
-                end
-            end
-        end
-
-        -- Item cooldown
-        if event == "BAG_UPDATE_COOLDOWN" and cmd == "item" then
-            local start, duration, enable = C_Item.GetItemCooldown(self.bbValue)
-            if start and duration and duration > 0 then
-                self.cooldown:SetCooldown(start, duration)
-                self.cooldown:Show()
-            else
-                self.cooldown:Hide()
-            end
-        end
-
-        -- Item count
-        if event == "BAG_UPDATE" and cmd == "item" then
+        -- Route events to generic update functions; they check the action
+        -- handler internally.
+        if event == "SPELL_UPDATE_COOLDOWN" or event == "BAG_UPDATE_COOLDOWN" then
+            addon.Button:UpdateCooldown(self)
+        elseif event == "BAG_UPDATE" then
             addon.Button:UpdateCount(self)
             addon.Button:UpdateUsable(self)
-        end
-
-        -- Spell proc glow
-        if (event == "SPELL_ACTIVATION_OVERLAY_GLOW_SHOW" or event == "SPELL_ACTIVATION_OVERLAY_GLOW_HIDE") then
-            if cmd == "spell" and self.bbID then
-                addon.Button:UpdateGlow(self)
-            end
-        end
-
-        -- Equipped item border
-        if event == "PLAYER_EQUIPMENT_CHANGED" and cmd == "item" then
+        elseif event == "SPELL_ACTIVATION_OVERLAY_GLOW_SHOW"
+            or event == "SPELL_ACTIVATION_OVERLAY_GLOW_HIDE" then
+            addon.Button:UpdateGlow(self)
+        elseif event == "PLAYER_EQUIPMENT_CHANGED" then
             addon.Button:UpdateEquipped(self)
-        end
-
-        -- Usability
-        if event == "SPELL_UPDATE_USABLE" and cmd == "spell" then
+        elseif event == "SPELL_UPDATE_USABLE" then
             addon.Button:UpdateUsable(self)
         end
     end)
@@ -333,6 +332,12 @@ function Bar:RegisterEditMode(frame, barData)
               end },
 
             -- Behavior
+            { type = "checkbox", key = "locked", label = "Lock Buttons", section = "Behavior",
+              get = function() return bd.locked or false end,
+              set = function(v)
+                  bd.locked = v
+                  addon.db.profile.bars[bd.id].locked = v
+              end },
             { type = "checkbox", key = "rightClickSelfCast", label = "Right-Click Self-Cast", section = "Behavior",
               get = function() return bd.rightClickSelfCast or false end,
               set = function(v)
@@ -582,9 +587,7 @@ function Bar:UpdateButtonVisibility(frame)
     for r, row in pairs(frame.buttons) do
         for c, btn in pairs(row) do
             if r <= frame.barData.rows and c <= frame.barData.cols then
-                if btn.bbCommand then
-                    btn:Show()
-                elseif showEmpty then
+                if btn.action or showEmpty then
                     btn:Show()
                 else
                     btn:Hide()
