@@ -348,6 +348,21 @@ local function GetSettingsOptionsTable()
                     end
                 end,
             },
+            combatHeader = {
+                order = 10,
+                type = "header",
+                name = "Combat",
+            },
+            castOnKeyDown = {
+                order = 11,
+                type = "toggle",
+                name = "Cast on Key Down",
+                desc = "Default bars cast on keypress instead of keyrelease. Required for hold-to-cast features like One Button Combat. BazBars buttons always cast on key up.",
+                get = function() return GetCVarBool("ActionButtonUseKeyDown") end,
+                set = function(_, val)
+                    SetCVar("ActionButtonUseKeyDown", val and "1" or "0")
+                end,
+            },
         },
     }
 end

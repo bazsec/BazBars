@@ -16,6 +16,16 @@ local function SafeString(s)
     return ok and clean or s
 end
 
+-- Same pattern for numbers. C_Spell.GetSpellCooldown returns secret values
+-- that can't be compared to numeric literals directly; round-trip through
+-- string.format("%d", ...) to strip the taint.
+local function SafeNumber(n)
+    if n == nil then return nil end
+    local ok, clean = pcall(string.format, "%d", n)
+    if not ok then return nil end
+    return tonumber(clean)
+end
+
 local function GetSpellName(spellID)
     if not spellID then return nil end
     local info = C_Spell.GetSpellInfo(spellID)
@@ -91,7 +101,7 @@ function Spell.getCooldown(data)
     if not C_Spell.GetSpellCooldown then return end
     local info = C_Spell.GetSpellCooldown(data.id)
     if not info then return end
-    return info.startTime, info.duration, info.isEnabled
+    return SafeNumber(info.startTime), SafeNumber(info.duration), info.isEnabled
 end
 
 function Spell.isUsable(data)

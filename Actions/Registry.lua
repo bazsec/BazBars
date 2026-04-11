@@ -3,6 +3,16 @@
 -- one action type (spell, item, macro, mount, etc.) in a self-contained module.
 --
 -- See the handler interface comment at the bottom of this file for the contract.
+--
+-- FUTURE NOTE: This pattern (Registry + per-type handlers in Actions/*.lua)
+-- is a strong candidate for promotion to BazCore when a second addon needs
+-- action buttons. The handlers are almost entirely addon-agnostic — they
+-- wrap Blizzard APIs with no BazBars-specific logic. At that point, move:
+--   - Registry.lua → BazCore/Actions/Registry.lua
+--   - Spell/Item/Toy/Mount/BattlePet/Macro/EquipmentSet/MacroText → BazCore/Actions/
+-- BazBars would then call BazCore.Actions:FromCursor() etc. Leave it here
+-- until there's a real second consumer so the API gets designed against
+-- actual use cases rather than speculation.
 
 local addon = BazCore:GetAddon("BazBars")
 local Actions = {}

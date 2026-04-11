@@ -1,5 +1,10 @@
 # BazBars Changelog
 
+## 026 - Cast on Key Down Toggle, Midnight Taint Fix
+- Added "Cast on Key Down" toggle to the Settings page so you can enable cast-on-down for Blizzard default bars (required for One Button Combat's hold-to-cast feature) while BazBars buttons stay on cast-on-up
+- Fixed "attempt to compare local 'duration' (a secret number value tainted by 'BazBars')" error from C_Spell.GetSpellCooldown in Midnight
+  - Spell cooldown startTime and duration now round-trip through string.format("%d", ...) to strip the taint before being compared
+
 ## 025 - Drag & Drop Rewrite
 - Completely rewrote the drag & drop system as modular per-type action handlers
 - New handlers: Spell, Item, Toy, Mount, BattlePet, Macro, EquipmentSet, MacroText
