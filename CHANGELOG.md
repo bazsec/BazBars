@@ -1,5 +1,13 @@
 # BazBars Changelog
 
+## 027 - Fix Buttons Not Firing With Cast on Key Down Enabled
+- Fixed BazBars buttons doing nothing when `ActionButtonUseKeyDown` (Cast on Key Down) is enabled
+  - Buttons animated on click but never actually fired the ability, because `RegisterForClicks("AnyUp")` only registered for key-up events while the global CVar was directing the secure dispatcher to fire on key-down
+  - `ActionButtonUseKeyDown` is a global CVar — BazBars buttons live in the same secure dispatch path as Blizzard's action bars and cannot be independently "locked to up" while Blizzard's stay on down
+  - Changed button registration to match Blizzard's own ActionButton: `RegisterForClicks("AnyUp", "LeftButtonDown", "RightButtonDown")` (Blizzard_ActionBar/Shared/ActionButton.lua:458)
+  - Result: BazBars buttons now fire correctly in both CVar modes, exactly like Blizzard's default bars
+- **Note on drag-drop with Cast on Key Down enabled:** plain click-drag on a BazBars button will fire the ability on mouse-down before the drag starts, matching Blizzard's behavior on their own bars. Use **Shift+drag** to rearrange buttons when Cast on Key Down is on — `shift-type1` / `shift-type2` are set to `"noop"` so shift-click never dispatches anything.
+
 ## 026 - Cast on Key Down Toggle, Midnight Taint Fix
 - Added "Cast on Key Down" toggle to the Settings page so you can enable cast-on-down for Blizzard default bars (required for One Button Combat's hold-to-cast feature) while BazBars buttons stay on cast-on-up
 - Fixed "attempt to compare local 'duration' (a secret number value tainted by 'BazBars')" error from C_Spell.GetSpellCooldown in Midnight

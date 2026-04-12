@@ -72,12 +72,21 @@ function Bar:CreateSingleButton(frame, barData, r, c)
     local btnName = "BazBarsButton" .. buttonCount
     local btn = CreateFrame("Button", btnName, frame, "BazBarsButtonTemplate")
     btn:RegisterForDrag("LeftButton")
-    -- Always AnyUp (regardless of the ActionButtonUseKeyDown CVar) so that
-    -- dragging works without requiring Shift. With AnyUp, the mouseup click
-    -- is cancelled by an active drag — so click-drag picks up the button
-    -- without firing its action. Core.lua shows a first-run warning if the
-    -- user has key-down casting enabled and offers to change it.
-    btn:RegisterForClicks("AnyUp")
+    -- Match Blizzard's ActionButton click registration exactly (see
+    -- Blizzard_ActionBar/Shared/ActionButton.lua:458). Registering for
+    -- AnyUp + the two main-button down events means the secure
+    -- dispatcher fires correctly in both modes of the global
+    -- `ActionButtonUseKeyDown` CVar:
+    --   CVar=0 → dispatch on key-up, drag-drop works on plain click-drag
+    --            (the mouseup is consumed by the active drag so the
+    --            secure cast is never triggered)
+    --   CVar=1 → dispatch on LeftButton/RightButton down, matching
+    --            Blizzard's default bars. Plain click-drag would fire
+    --            the spell before the drag started, so Shift+drag is
+    --            required to pick up buttons — shift-type1/shift-type2
+    --            are set to "noop" in Registry.lua so shift-click /
+    --            shift-drag never dispatches anything.
+    btn:RegisterForClicks("AnyUp", "LeftButtonDown", "RightButtonDown")
 
     -- Prevent the secure action from firing when the cursor has contents.
     -- Without this, clicking a button with something on the cursor would
