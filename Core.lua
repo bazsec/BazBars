@@ -328,10 +328,15 @@ end
 function addon:SetupEditMode()
     if not EditModeManagerFrame then return end
 
-    -- "Create New BazBar" button in Edit Mode panel
+    -- "Create New BazBar" button in Edit Mode panel. Auto-size to
+    -- whatever the text needs + a small horizontal padding so the
+    -- button hugs its label instead of stretching across the panel.
+    -- Scale 1.2 so the whole button (text + chrome) reads ~20% larger
+    -- without changing the auto-sizing math.
     local createBtn = CreateFrame("Button", nil, EditModeManagerFrame, "UIPanelButtonTemplate")
-    createBtn:SetSize(330, 28)
     createBtn:SetText("Create New BazBar")
+    createBtn:SetSize((createBtn.Text:GetStringWidth() or 120) + 24, 22)
+    createBtn:SetScale(1.2)
     createBtn:SetPoint("BOTTOM", EditModeManagerFrame, "BOTTOM", 0, -36)
     createBtn:SetScript("OnClick", function()
         if not InCombatLockdown() then

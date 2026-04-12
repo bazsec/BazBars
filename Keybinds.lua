@@ -10,6 +10,13 @@ local keybindOwner = nil -- secure header for override bindings
 local hoveredButton = nil
 local isActive = false
 
+-- Pending Blizzard-binding evictions queued while in combat. Structure:
+--   { [key] = true, ... }
+-- Processed on PLAYER_REGEN_ENABLED so we only touch the Blizzard binding
+-- table (which is combat-locked) after combat ends.
+local pendingEvictions = {}
+local evictionFrame = nil
+
 -- Keys to ignore (modifiers only)
 local MODIFIER_KEYS = {
     LSHIFT = true, RSHIFT = true,
@@ -35,6 +42,66 @@ local function FormatKeyText(key)
 end
 
 ---------------------------------------------------------------------------
+-- Blizzard binding eviction
+--
+-- BazBars uses SetOverrideBindingClick for its buttons, which sits on
+-- top of Blizzard's normal binding table. If the user has already
+-- bound a key (say `E`) to a Blizzard action, and then binds the same
+-- key to a BazBars button via Quick Keybind Mode, BOTH bindings end up
+-- on the key. The override wins (priority = true) so only the BazBars
+-- click fires, but the Blizzard binding stays "attached" — it shows up
+-- in the Blizzard Key Bindings menu and reactivates if the BazBars
+-- binding is ever cleared.
+--
+-- To avoid that silent-double-binding state, we proactively clear any
+-- existing Blizzard binding on the key when BazBars takes it over.
+-- Mimics Blizzard's own menu behavior: if you rebind `E` to a new
+-- action, the old action loses its `E` binding.
+---------------------------------------------------------------------------
+
+local function EvictBlizzardBindingNow(key)
+    if not key or key == "" then return nil end
+    local existing = GetBindingAction(key)
+    if not existing or existing == "" then return nil end
+    -- Ignore bindings that already point at our own click owner —
+    -- those are BazBars bindings, not Blizzard ones, and will be
+    -- cleaned up by SetOverrideBindingClick itself.
+    if existing:match("^CLICK BazBars") then return nil end
+
+    SetBinding(key, nil)
+    SaveBindings(GetCurrentBindingSet())
+    return existing
+end
+
+local function ProcessPendingEvictions()
+    if InCombatLockdown() then return end
+    for key in pairs(pendingEvictions) do
+        EvictBlizzardBindingNow(key)
+    end
+    wipe(pendingEvictions)
+end
+
+local function EnsureEvictionFrame()
+    if evictionFrame then return end
+    evictionFrame = CreateFrame("Frame")
+    evictionFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
+    evictionFrame:SetScript("OnEvent", ProcessPendingEvictions)
+end
+
+-- Request that a Blizzard binding on `key` be cleared. If out of combat,
+-- clears immediately and returns the previous action (or nil). If in
+-- combat, queues the eviction for PLAYER_REGEN_ENABLED and returns nil.
+local function EvictBlizzardBinding(key)
+    if not key or key == "" then return nil end
+    if InCombatLockdown() then
+        EnsureEvictionFrame()
+        pendingEvictions[key] = true
+        return nil
+    end
+    return EvictBlizzardBindingNow(key)
+end
+
+---------------------------------------------------------------------------
 -- Binding management
 ---------------------------------------------------------------------------
 
@@ -43,10 +110,14 @@ function Keybinds:SetBinding(buttonName, key)
         keybindOwner = CreateFrame("Frame", "BazBarsKeybindOwner", UIParent, "SecureHandlerBaseTemplate")
     end
 
-    -- Clear any existing binding for this button
+    -- Clear any existing binding for this button. Use SetOverrideBinding
+    -- (not SetOverrideBindingClick) because the click variant doesn't
+    -- accept nil for buttonName in Midnight — it errors out. The generic
+    -- SetOverrideBinding with command=nil clears the override for that
+    -- specific key, and works for click-overrides too.
     local oldKey = addon.db.profile.keybinds and addon.db.profile.keybinds[buttonName]
     if oldKey then
-        SetOverrideBindingClick(keybindOwner, true, oldKey, nil)
+        SetOverrideBinding(keybindOwner, true, oldKey, nil)
     end
 
     -- Clear any existing action on this key
@@ -64,6 +135,18 @@ function Keybinds:SetBinding(buttonName, key)
         end
     end
 
+    -- Evict any existing Blizzard binding on this key BEFORE installing
+    -- the override, so we don't end up in the silent-double-binding state
+    -- where BazBars fires the click but Blizzard's menu still shows the
+    -- key as bound to something else. If we're in combat the eviction is
+    -- deferred until PLAYER_REGEN_ENABLED — the override still takes
+    -- priority immediately via priority=true, so the BazBars click wins
+    -- until the Blizzard clear catches up.
+    local evictedAction
+    if key then
+        evictedAction = EvictBlizzardBinding(key)
+    end
+
     -- Set new binding
     addon.db.profile.keybinds = addon.db.profile.keybinds or {}
     if key then
@@ -71,6 +154,15 @@ function Keybinds:SetBinding(buttonName, key)
         addon.db.profile.keybinds[buttonName] = key
     else
         addon.db.profile.keybinds[buttonName] = nil
+    end
+
+    -- Surface feedback if we evicted a Blizzard binding, so the user
+    -- knows what just happened instead of silently losing their old
+    -- binding. Uses the addon's standard Print helper (chat output).
+    if evictedAction and addon.Print then
+        addon:Print(string.format(
+            "|cffffd700%s|r was bound to |cff00ff00%s|r - cleared so the BazBars button can claim it.",
+            key, evictedAction))
     end
 
     -- Update hotkey text

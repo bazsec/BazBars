@@ -1,5 +1,16 @@
 # BazBars Changelog
 
+## 029 - Keybind Conflict Eviction, Fix Unbind Error, Smaller Edit Mode Button
+- **Fixed Blizzard keybind conflict:** when Quick Keybind Mode claims a key (e.g. `E`) that already has a Blizzard binding, BazBars now automatically evicts the Blizzard binding so the key isn't double-bound silently
+  - Previously, setting `E` in Quick Keybind Mode installed a secure override on top of Blizzard's existing `E` binding — the override took priority so only the BazBars click fired, but the Blizzard binding stayed attached and would reactivate if the BazBars binding was cleared
+  - New `EvictBlizzardBinding(key)` helper calls `GetBindingAction(key)` + `SetBinding(key, nil)` + `SaveBindings` to cleanly remove the Blizzard side of the conflict; Blizzard-binding clears that happen during combat are queued and processed on `PLAYER_REGEN_ENABLED`
+  - Surfaces feedback in chat: `|cffffd700E|r was bound to |cff00ff00ACTIONBUTTON5|r - cleared so the BazBars button can claim it.`
+  - Skips eviction when the existing action starts with `CLICK BazBars` (that's another BazBars button handled by the existing override-clearing path)
+- **Fixed `Usage: SetOverrideBindingClick(...)` error when clearing a keybind via ESC** in Quick Keybind Mode
+  - The old code called `SetOverrideBindingClick(owner, true, oldKey, nil)` to clear an override, but the click variant doesn't accept `nil` for `buttonName` in Midnight — it throws the usage error instead
+  - Switched to `SetOverrideBinding(owner, true, oldKey, nil)` (the generic non-click variant) which accepts `nil` as "clear this key" and works for click-overrides as well
+- **Shrunk the "Create New BazBar" button in the Edit Mode panel** — previously a 330px-wide stretched bar, now auto-sizes to the text width + padding at 1.2x scale so it hugs its label instead of dominating the panel
+
 ## 028 - Fix Spell Cooldown Sweep Not Showing In Combat
 - Fixed spell cooldown animations not displaying during combat (v025 regression)
   - The v025 drag-drop rewrite moved cooldown logic into per-type action handlers and switched spells from Midnight's taint-safe `C_Spell.GetSpellCooldownDuration` + `Cooldown:SetCooldownFromDurationObject` duration-object API to the older raw-numbers path (`C_Spell.GetSpellCooldown` → startTime/duration numbers)
