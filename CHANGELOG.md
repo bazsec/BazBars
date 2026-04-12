@@ -1,5 +1,13 @@
 # BazBars Changelog
 
+## 028 - Fix Spell Cooldown Sweep Not Showing In Combat
+- Fixed spell cooldown animations not displaying during combat (v025 regression)
+  - The v025 drag-drop rewrite moved cooldown logic into per-type action handlers and switched spells from Midnight's taint-safe `C_Spell.GetSpellCooldownDuration` + `Cooldown:SetCooldownFromDurationObject` duration-object API to the older raw-numbers path (`C_Spell.GetSpellCooldown` → startTime/duration numbers)
+  - v026's `SafeNumber` taint-stripping silenced the taint comparison error but didn't solve the underlying problem: `Cooldown:SetCooldown(start, duration)` silently refuses to display when called with tainted numeric arguments in the secure combat environment
+  - Restored the duration-object pipeline via a new `handler.applyCooldown(data, cooldownFrame)` method — `Spell.applyCooldown` uses `SetCooldownFromDurationObject` which is the only path that reliably drives the Cooldown frame in combat
+  - `Button:UpdateCooldown` now prefers `applyCooldown` over the legacy `getCooldown` raw-numbers path; Item and Toy handlers keep using `getCooldown` since `C_Item.GetItemCooldown` isn't subject to the same taint
+- Added a pristine `CooldownPrototype = CreateFrame("Cooldown")` for the legacy fallback path, matching Blizzard's own pattern in `Blizzard_ActionBar/Shared/ActionButton.lua:890`: *"Create a pristine instance of Cooldown frame to mitigate potential secret leaks through overwriting methods"*
+
 ## 027 - Fix Buttons Not Firing With Cast on Key Down Enabled
 - Fixed BazBars buttons doing nothing when `ActionButtonUseKeyDown` (Cast on Key Down) is enabled
   - Buttons animated on click but never actually fired the ability, because `RegisterForClicks("AnyUp")` only registered for key-up events while the global CVar was directing the secure dispatcher to fire on key-down

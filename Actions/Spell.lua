@@ -16,12 +16,15 @@ local function SafeString(s)
     return ok and clean or s
 end
 
--- Same pattern for numbers. C_Spell.GetSpellCooldown returns secret values
--- that can't be compared to numeric literals directly; round-trip through
--- string.format("%d", ...) to strip the taint.
+-- Same pattern for numbers. C_Spell.GetSpellCooldown returns secret
+-- values that can't be compared to numeric literals directly; round-trip
+-- through string.format to strip the taint. IMPORTANT: use "%f" not
+-- "%d" so sub-second values (hasted GCDs like 0.75s) don't truncate to
+-- zero — that truncation was silently killing the cooldown animation
+-- on spells in combat.
 local function SafeNumber(n)
     if n == nil then return nil end
-    local ok, clean = pcall(string.format, "%d", n)
+    local ok, clean = pcall(string.format, "%f", n)
     if not ok then return nil end
     return tonumber(clean)
 end
@@ -97,6 +100,34 @@ function Spell.getCount(data)
     return ""
 end
 
+-- Preferred cooldown path — applies the cooldown to the Cooldown frame
+-- directly via Midnight's `SetCooldownFromDurationObject`, which takes
+-- a taint-safe duration object from `C_Spell.GetSpellCooldownDuration`
+-- instead of raw startTime/duration numbers. The duration-object API
+-- is the only path that reliably shows cooldown sweeps in combat —
+-- the raw-numbers path (`C_Spell.GetSpellCooldown` + manual taint
+-- stripping) silently fails in the secure environment even when the
+-- numbers look correct.
+function Spell.applyCooldown(data, cooldownFrame)
+    if not C_Spell.GetSpellCooldownDuration then
+        cooldownFrame:Clear()
+        cooldownFrame:Hide()
+        return
+    end
+    local durationObj = C_Spell.GetSpellCooldownDuration(data.id)
+    if durationObj then
+        cooldownFrame:Show()
+        cooldownFrame:SetCooldownFromDurationObject(durationObj)
+    else
+        cooldownFrame:Clear()
+        cooldownFrame:Hide()
+    end
+end
+
+-- Legacy raw-numbers path. Still returned so callers that specifically
+-- want startTime/duration/isEnabled (e.g. charge-count widgets, tooltip
+-- text) can read them without triggering Cooldown frame updates. Use
+-- `applyCooldown` for actually driving a Cooldown frame.
 function Spell.getCooldown(data)
     if not C_Spell.GetSpellCooldown then return end
     local info = C_Spell.GetSpellCooldown(data.id)

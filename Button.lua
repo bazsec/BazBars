@@ -22,6 +22,16 @@ local GameTooltip = GameTooltip
 local EMPTY_SLOT = 136511 -- Interface\PaperDoll\UI-Backpack-EmptySlot
 local QUESTION_MARK = "Interface\\Icons\\INV_Misc_QuestionMark"
 
+-- Pristine Cooldown instance used to call SetCooldown/Clear through its
+-- unmodified metatable. Going through `btn.cooldown:SetCooldown(...)`
+-- dispatches via the individual frame's (potentially tainted) method
+-- table — in combat that taint path can make SetCooldown silently
+-- no-op, which is why our cooldown animations were missing during
+-- combat. Using the prototype's method directly bypasses that.
+-- Same pattern as Blizzard's ActionButton (Blizzard_ActionBar/Shared/
+-- ActionButton.lua:890).
+local CooldownPrototype = CreateFrame("Cooldown")
+
 ---------------------------------------------------------------------------
 -- Handler helper
 ---------------------------------------------------------------------------
@@ -43,7 +53,7 @@ function Button:UpdateTexture(btn)
 
     if not btn.action then
         icon:Hide()
-        btn.cooldown:Hide()
+        CooldownPrototype.Clear(btn.cooldown)
         if btn.bbShowEmpty then
             btn:SetNormalTexture(EMPTY_SLOT)
         else
@@ -70,18 +80,40 @@ end
 
 function Button:UpdateCooldown(btn)
     local handler, data = GetHandler(btn)
-    if not handler or not handler.getCooldown then
+    if not handler then
+        CooldownPrototype.Clear(btn.cooldown)
         btn.cooldown:Hide()
         return
     end
 
-    local start, duration, enable = handler.getCooldown(data)
-    if start and duration and duration > 0 then
-        btn.cooldown:SetCooldown(start, duration)
-        btn.cooldown:Show()
-    else
-        btn.cooldown:Hide()
+    -- Preferred path: handler applies the cooldown directly via Midnight's
+    -- SetCooldownFromDurationObject (the only path that survives combat
+    -- taint). Each handler owns its own cooldown update because the
+    -- underlying API differs per type (spells use GetSpellCooldownDuration,
+    -- items use GetItemCooldown numbers, etc.).
+    if handler.applyCooldown then
+        handler.applyCooldown(data, btn.cooldown)
+        return
     end
+
+    -- Legacy fallback: handler returns raw (start, duration) numbers.
+    -- Used by Item and Toy handlers which don't have a duration-object
+    -- API. Still routes through CooldownPrototype to avoid taint on the
+    -- method dispatch itself.
+    if handler.getCooldown then
+        local start, duration, enable = handler.getCooldown(data)
+        if start and duration and duration > 0 then
+            btn.cooldown:Show()
+            CooldownPrototype.SetCooldown(btn.cooldown, start, duration)
+        else
+            CooldownPrototype.Clear(btn.cooldown)
+            btn.cooldown:Hide()
+        end
+        return
+    end
+
+    CooldownPrototype.Clear(btn.cooldown)
+    btn.cooldown:Hide()
 end
 
 function Button:UpdateUsable(btn)
