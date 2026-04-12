@@ -1,5 +1,12 @@
 # BazBars Changelog
 
+## 030 - Mouse Button Keybinding Support
+- Quick Keybind Mode now supports **middle mouse, mouse4, and mouse5** bindings (and modifier combos like Shift+MiddleButton)
+  - Added `OnMouseDown` handler to hovered buttons during keybind mode to catch mouse button presses (OnKeyDown only fires for keyboard keys)
+  - Converts OnMouseDown button names to binding system names: `MiddleButton` → `BUTTON3`, `Button4` → `BUTTON4`, `Button5` → `BUTTON5`
+  - Left and right mouse clicks are ignored (those interact with the button, not bind to it)
+  - Mouse handlers properly restored on exit from keybind mode
+
 ## 029 - Keybind Conflict Eviction, Fix Unbind Error, Smaller Edit Mode Button
 - **Fixed Blizzard keybind conflict:** when Quick Keybind Mode claims a key (e.g. `E`) that already has a Blizzard binding, BazBars now automatically evicts the Blizzard binding so the key isn't double-bound silently
   - Previously, setting `E` in Quick Keybind Mode installed a secure override on top of Blizzard's existing `E` binding — the override took priority so only the BazBars click fired, but the Blizzard binding stayed attached and would reactivate if the BazBars binding was cleared

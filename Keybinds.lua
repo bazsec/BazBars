@@ -326,6 +326,12 @@ local function CreateKeybindFrame()
     f:SetScript("OnKeyUp", function(self)
         self:SetPropagateKeyboardInput(true)
     end)
+
+    -- Mouse button binding (middle mouse, mouse4, mouse5, etc.).
+    -- OnKeyDown only fires for keyboard keys — mouse buttons need
+    -- OnMouseDown on the hovered BazBars button itself, handled in
+    -- EnterMode below where we override button scripts.
+
     f:Hide()
     return f
 end
@@ -367,9 +373,37 @@ function Keybinds:EnterMode()
                     end
                     btn.bbKeybindHighlight:Show()
 
-                    -- Override enter/leave for keybind mode
+                    -- Override enter/leave/mousedown for keybind mode
                     btn.bbOldOnEnter = btn:GetScript("OnEnter")
                     btn.bbOldOnLeave = btn:GetScript("OnLeave")
+                    btn.bbOldOnMouseDown = btn:GetScript("OnMouseDown")
+
+                    -- Catch mouse button bindings (MiddleButton, Button4, Button5)
+                    -- OnKeyDown only fires for keyboard keys — mouse buttons
+                    -- need OnMouseDown on the button itself.
+                    --
+                    -- IMPORTANT: OnMouseDown gives names like "MiddleButton"
+                    -- but the binding system expects "BUTTON3". Convert.
+                    local MOUSE_TO_BINDING = {
+                        MiddleButton = "BUTTON3",
+                        Button4      = "BUTTON4",
+                        Button5      = "BUTTON5",
+                    }
+                    btn:SetScript("OnMouseDown", function(self, mouseButton)
+                        if mouseButton == "LeftButton" or mouseButton == "RightButton" then
+                            return
+                        end
+                        if not hoveredButton then return end
+
+                        local bindingKey = MOUSE_TO_BINDING[mouseButton] or mouseButton
+                        local chord = ""
+                        if IsShiftKeyDown() then chord = chord .. "SHIFT-" end
+                        if IsControlKeyDown() then chord = chord .. "CTRL-" end
+                        if IsAltKeyDown() then chord = chord .. "ALT-" end
+                        chord = chord .. bindingKey
+
+                        Keybinds:SetBinding(hoveredButton:GetName(), chord)
+                    end)
 
                     btn:SetScript("OnEnter", function(self)
                         hoveredButton = self
@@ -427,6 +461,12 @@ function Keybinds:ExitMode()
                     btn:SetScript("OnLeave", btn.bbOldOnLeave)
                     btn.bbOldOnLeave = nil
                 end
+                if btn.bbOldOnMouseDown then
+                    btn:SetScript("OnMouseDown", btn.bbOldOnMouseDown)
+                else
+                    btn:SetScript("OnMouseDown", nil)
+                end
+                btn.bbOldOnMouseDown = nil
             end
         end
     end
