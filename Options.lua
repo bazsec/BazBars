@@ -17,10 +17,25 @@ local function GetOptionsTable()
         subtitle = "Custom extra action bars",
         type = "group",
         args = {
+            createBar = {
+                order = 1,
+                type = "execute",
+                name = "Create New Bar",
+                func = function()
+                    local bb = BazCore:GetAddon("BazBars")
+                    if bb and not InCombatLockdown() then
+                        local id = bb:CreateNewBar()
+                        if id then
+                            bb:Print("Created Bar " .. id)
+                            bb.Options:Refresh()
+                        end
+                    end
+                end,
+            },
             bars = {
                 order = 10,
                 type = "group",
-                name = "Bars",
+                name = "",
                 args = {},
             },
         },
@@ -309,8 +324,20 @@ local function GetSettingsOptionsTable()
                 get = function() return addon.db.profile.showTooltips ~= false end,
                 set = function(_, val) addon.db.profile.showTooltips = val end,
             },
-            showKeybindText = {
+            tooltipAnchor = {
                 order = 4,
+                type = "select",
+                name = "Tooltip Position",
+                desc = "Where BazBars tooltips appear when hovering a button.",
+                values = {
+                    default = "Default (bottom-right corner)",
+                    button  = "Next to button",
+                },
+                get = function() return addon.db.profile.tooltipAnchor or "default" end,
+                set = function(_, val) addon.db.profile.tooltipAnchor = val end,
+            },
+            showKeybindText = {
+                order = 5,
                 type = "toggle",
                 name = "Show Keybind Text",
                 desc = "Display hotkey text on buttons",
@@ -329,7 +356,7 @@ local function GetSettingsOptionsTable()
                 end,
             },
             showMacroNames = {
-                order = 5,
+                order = 6,
                 type = "toggle",
                 name = "Show Macro Names",
                 desc = "Display macro name text on buttons",

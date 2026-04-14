@@ -182,7 +182,11 @@ function Button:ShowTooltip(btn)
     local handler, data = GetHandler(btn)
     if not handler or not handler.showTooltip then return end
 
-    GameTooltip:SetOwner(btn, "ANCHOR_RIGHT")
+    if addon.db.profile.tooltipAnchor == "button" then
+        GameTooltip:SetOwner(btn, "ANCHOR_RIGHT")
+    else
+        GameTooltip_SetDefaultAnchor(GameTooltip, btn)
+    end
     handler.showTooltip(data)
     GameTooltip:Show()
 end

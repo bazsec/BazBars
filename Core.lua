@@ -17,6 +17,7 @@ local addon = BazCore:RegisterAddon("BazBars", {
         minimap = { hide = false },
         fullRangeColor = true,
         showTooltips = true,
+        tooltipAnchor = "default",  -- "default" = bottom-right corner, "button" = next to button
         showKeybindText = true,
         showMacroNames = true,
     },
@@ -153,13 +154,14 @@ local addon = BazCore:RegisterAddon("BazBars", {
         label = "BazBars",
         icon = 5213776,
         onClick = function(button)
+            local bb = BazCore:GetAddon("BazBars")
             if button == "LeftButton" then
-                addon.Options:Open()
+                if bb and bb.Options then bb.Options:Open() end
             elseif button == "RightButton" then
-                if not InCombatLockdown() then
-                    local id = addon:CreateNewBar()
+                if bb and not InCombatLockdown() then
+                    local id = bb:CreateNewBar()
                     if id then
-                        addon:Print("Created Bar " .. id .. ". Enter Edit Mode to configure.")
+                        bb:Print("Created Bar " .. id .. ". Enter Edit Mode to configure.")
                     end
                 end
             end
