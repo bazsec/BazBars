@@ -303,6 +303,11 @@ local function GetSettingsOptionsTable()
         name = "Settings",
         type = "group",
         args = {
+            intro = {
+                order = 0.1,
+                type = "lead",
+                text = "Display, tooltip, and combat preferences that apply to every BazBar. Per-bar settings live under Bar Options.",
+            },
             displayHeader = {
                 order = 1,
                 type = "header",
@@ -380,11 +385,17 @@ local function GetSettingsOptionsTable()
                 type = "header",
                 name = "Combat",
             },
+            combatNote = {
+                order = 10.5,
+                type = "note",
+                style = "info",
+                text = "BazBars buttons always cast on key up. The setting below only affects Blizzard's default action bars.",
+            },
             castOnKeyDown = {
                 order = 11,
                 type = "toggle",
                 name = "Cast on Key Down",
-                desc = "Default bars cast on keypress instead of keyrelease. Required for hold-to-cast features like One Button Combat. BazBars buttons always cast on key up.",
+                desc = "Default bars cast on keypress instead of keyrelease. Required for hold-to-cast features like One Button Combat.",
                 get = function() return GetCVarBool("ActionButtonUseKeyDown") end,
                 set = function(_, val)
                     SetCVar("ActionButtonUseKeyDown", val and "1" or "0")
