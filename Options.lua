@@ -454,11 +454,11 @@ function Options:Setup()
 
     -- Settings subcategory
     BazCore:RegisterOptionsTable("BazBars-Settings", GetSettingsOptionsTable)
-    BazCore:AddToSettings("BazBars-Settings", "Settings", "BazBars")
+    BazCore:AddToSettings("BazBars-Settings", "General Settings", "BazBars")
 
     -- Global Options subcategory
     BazCore:RegisterOptionsTable("BazBars-Global", GetGlobalOptionsTable)
-    BazCore:AddToSettings("BazBars-Global", "Global Options", "BazBars")
+    BazCore:AddToSettings("BazBars-Global", "Global Settings", "BazBars")
 
     -- Bar Options subcategory
     BazCore:RegisterOptionsTable("BazBars-Bars", GetOptionsTable)
