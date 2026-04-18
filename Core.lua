@@ -217,16 +217,28 @@ end
 addon.config.onReady = function(self)
     self.Bar:LoadAll()
 
-    self:On("SPELL_UPDATE_COOLDOWN", function() addon:UpdateAllButtons() end)
-    self:On("SPELL_UPDATE_USABLE", function() addon:UpdateAllButtons() end)
-    self:On("BAG_UPDATE", function() addon:UpdateAllButtons() end)
-    self:On("PLAYER_EQUIPMENT_CHANGED", function() addon:UpdateAllButtons() end)
-    self:On("ACTIONBAR_UPDATE_STATE", function() addon:UpdateAllButtons() end)
-    self:On("SPELL_ACTIVATION_OVERLAY_GLOW_SHOW", function() addon:UpdateAllButtons() end)
-    self:On("SPELL_ACTIVATION_OVERLAY_GLOW_HIDE", function() addon:UpdateAllButtons() end)
-    self:On("UPDATE_MACROS", function() addon:UpdateAllButtons() end)
+    -- Targeted updates — only run the sub-update each event actually
+    -- needs, instead of the full 8-function UpdateButton for every
+    -- button on every event. High-frequency combat events like
+    -- SPELL_UPDATE_COOLDOWN can fire dozens of times per second in
+    -- raids; doing a full update pass each time was the main perf hit.
+    self:On("SPELL_UPDATE_COOLDOWN", function() addon:UpdateAllCooldowns() end)
+    self:On("SPELL_UPDATE_USABLE",  function() addon:UpdateAllUsable() end)
+    self:On("UNIT_POWER_UPDATE",    function() addon:UpdateAllUsable() end)
+    self:On("SPELL_ACTIVATION_OVERLAY_GLOW_SHOW", function() addon:UpdateAllGlow() end)
+    self:On("SPELL_ACTIVATION_OVERLAY_GLOW_HIDE", function() addon:UpdateAllGlow() end)
+    self:On("UPDATE_MACROS",        function() addon:UpdateAllMacroNames() end)
     self:On("PLAYER_TARGET_CHANGED", function() addon:OnRangeEvent() end)
-    self:On("UNIT_POWER_UPDATE", function() addon:UpdateAllButtons() end)
+
+    -- These are infrequent events — a full update pass is fine.
+    self:On("BAG_UPDATE",               function() addon:QueueFullUpdate() end)
+    self:On("PLAYER_EQUIPMENT_CHANGED", function() addon:QueueFullUpdate() end)
+    self:On("ACTIONBAR_UPDATE_STATE",   function() addon:QueueFullUpdate() end)
+
+    -- Pause the range ticker when not in combat — no reason to poll
+    -- spell range every 0.2s while standing in town.
+    self:On("PLAYER_REGEN_DISABLED", function() addon:StartRangeTicker() end)
+    self:On("PLAYER_REGEN_ENABLED",  function() addon:StopRangeTicker() end)
 
     self:SetupEditMode()
 
@@ -234,6 +246,11 @@ addon.config.onReady = function(self)
         addon:UpdateAllButtons()
         addon.Keybinds:RestoreAll()
         MaybeShowKeyDownWarning()
+        -- If we loaded mid-combat (e.g. /reload during a boss pull),
+        -- start the range ticker immediately.
+        if InCombatLockdown() then
+            addon:StartRangeTicker()
+        end
     end)
 end
 
@@ -354,34 +371,79 @@ end
 -- Event Handlers
 ---------------------------------------------------------------------------
 
-function addon:OnRangeEvent()
-    for _, frame in pairs(self.Bar:GetAll()) do
+-- Helper: iterate all buttons with an action and call `fn(btn)` on each.
+local function ForEachButton(fn)
+    for _, frame in pairs(addon.Bar:GetAll()) do
         for _, row in pairs(frame.buttons) do
             for _, btn in pairs(row) do
-                if btn.action then
-                    self.Button:UpdateRange(btn)
-                end
+                if btn.action then fn(btn) end
             end
         end
     end
 end
 
+-- Full update — walks every button through all 8 sub-updates.
+-- Used at startup, profile change, and rare events (BAG_UPDATE, etc.).
 function addon:UpdateAllButtons()
-    for _, frame in pairs(self.Bar:GetAll()) do
-        for _, row in pairs(frame.buttons) do
-            for _, btn in pairs(row) do
-                if btn.action then
-                    self.Button:UpdateButton(btn)
-                end
-            end
-        end
-    end
+    ForEachButton(function(btn) self.Button:UpdateButton(btn) end)
 end
 
--- Range ticker: check range every 0.2s (pauseable)
+-- Targeted update helpers — each walks the button grid but only runs
+-- the one sub-update that the triggering event actually needs.
+function addon:UpdateAllCooldowns()
+    ForEachButton(function(btn) self.Button:UpdateCooldown(btn) end)
+end
+
+function addon:UpdateAllUsable()
+    ForEachButton(function(btn) self.Button:UpdateUsable(btn) end)
+end
+
+function addon:UpdateAllGlow()
+    ForEachButton(function(btn) self.Button:UpdateGlow(btn) end)
+end
+
+function addon:UpdateAllMacroNames()
+    ForEachButton(function(btn) self.Button:UpdateMacroName(btn) end)
+end
+
+function addon:OnRangeEvent()
+    ForEachButton(function(btn) self.Button:UpdateRange(btn) end)
+end
+
+---------------------------------------------------------------------------
+-- Coalesced full update — infrequent events (BAG_UPDATE, equip change,
+-- action bar state) may fire in rapid bursts (e.g. swapping a gear set
+-- triggers one PLAYER_EQUIPMENT_CHANGED per slot). Instead of doing a
+-- full update pass per event, set a dirty flag and flush once at the
+-- end of the frame.
+---------------------------------------------------------------------------
+
+local fullUpdatePending = false
+local flushFrame = CreateFrame("Frame")
+flushFrame:Hide()
+flushFrame:SetScript("OnUpdate", function(self)
+    self:Hide()
+    fullUpdatePending = false
+    addon:UpdateAllButtons()
+end)
+
+function addon:QueueFullUpdate()
+    if fullUpdatePending then return end
+    fullUpdatePending = true
+    flushFrame:Show()
+end
+
+---------------------------------------------------------------------------
+-- Range ticker — polls spell range every 0.2s, but only while in
+-- combat. Out-of-combat there's no target switching that matters for
+-- range coloring, and the 5-times-per-second loop over every button
+-- was burning CPU for no reason.
+---------------------------------------------------------------------------
+
 local rangeTimer = 0
 local RANGE_INTERVAL = 0.2
 local rangeFrame = CreateFrame("Frame")
+rangeFrame:Hide()  -- starts paused; enabled on PLAYER_REGEN_DISABLED
 
 rangeFrame:SetScript("OnUpdate", function(self, elapsed)
     rangeTimer = rangeTimer + elapsed
@@ -391,6 +453,18 @@ rangeFrame:SetScript("OnUpdate", function(self, elapsed)
     end
 end)
 
+function addon:StartRangeTicker()
+    rangeTimer = 0
+    rangeFrame:Show()
+end
+
+function addon:StopRangeTicker()
+    rangeFrame:Hide()
+end
+
+-- Also kick the range ticker on target change (already registered
+-- as a direct OnRangeEvent call above), and start it if we load
+-- mid-combat.
 addon.rangeFrame = rangeFrame
 
 ---------------------------------------------------------------------------
