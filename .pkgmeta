@@ -1,9 +1,15 @@
 package-as: BazBars
+
+manual-changelog:
+  filename: CHANGELOG.md
+  markup-type: markdown
+
 ignore:
   - .git
   - .gitignore
   - .pkgmeta
   - LICENSE
+  - CHANGELOG.md
   # Marketing image lives in the repo root so the README + CurseForge
   # description can link to it via a raw.githubusercontent.com URL.
   # No business being in the in-game install - the BigWigsMods packager
